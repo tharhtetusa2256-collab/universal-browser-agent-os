@@ -15,7 +15,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-DOMAIN_RE = re.compile(r"^(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,}$")
+from jsonschema import Draft202012Validator
+
 ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{1,80}$")
 SECRET_KEY_RE = re.compile(
     r"(?:password|passwd|secret|api[_-]?key|access[_-]?token|refresh[_-]?token|"
@@ -28,6 +29,14 @@ CONSEQUENTIAL_TO_POLICY = {
     "publish": "allow_publishing",
     "purchase": "allow_purchasing",
     "delete": "allow_deletion",
+}
+
+POLICY_TO_PROHIBITED_ACTION = {
+    "allow_login": "login",
+    "allow_sending": "send",
+    "allow_publishing": "publish",
+    "allow_purchasing": "purchase",
+    "allow_deletion": "delete",
 }
 
 
@@ -44,6 +53,26 @@ def load_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def validate_against_schema(
+    data: dict[str, Any],
+    schema_path: Path,
+    label: str,
+) -> list[str]:
+    """Validate data against its authoritative Draft 2020-12 JSON Schema."""
+    schema = load_json(schema_path)
+    Draft202012Validator.check_schema(schema)
+    validator = Draft202012Validator(schema)
+    errors: list[str] = []
+
+    for error in sorted(validator.iter_errors(data), key=lambda item: list(item.absolute_path)):
+        location = "$"
+        for part in error.absolute_path:
+            location += f"[{part}]" if isinstance(part, int) else f".{part}"
+        errors.append(f"{label} schema {location}: {error.message}")
+
+    return errors
+
+
 def find_secret_like_keys(value: Any, location: str = "$") -> list[str]:
     findings: list[str] = []
     if isinstance(value, dict):
@@ -56,6 +85,21 @@ def find_secret_like_keys(value: Any, location: str = "$") -> list[str]:
         for index, child in enumerate(value):
             findings.extend(find_secret_like_keys(child, f"{location}[{index}]"))
     return findings
+
+
+def is_valid_domain(value: Any) -> bool:
+    if not isinstance(value, str) or len(value) > 253:
+        return False
+    labels = value.split(".")
+    if len(labels) < 2 or len(labels[-1]) < 2:
+        return False
+    return all(
+        1 <= len(label) <= 63
+        and label[0].isalnum()
+        and label[-1].isalnum()
+        and all(character.isalnum() or character == "-" for character in label)
+        for label in labels
+    )
 
 
 def require_object(data: dict[str, Any], key: str, errors: list[str]) -> dict[str, Any]:
@@ -124,7 +168,12 @@ def validate_business(data: dict[str, Any]) -> list[str]:
     return errors
 
 
-def validate_task(data: dict[str, Any], business: dict[str, Any], repo_root: Path) -> list[str]:
+def validate_task(
+    data: dict[str, Any],
+    business: dict[str, Any],
+    repo_root: Path,
+    business_path: Path | None = None,
+) -> list[str]:
     errors: list[str] = []
     required = {
         "task_version",
@@ -159,7 +208,7 @@ def validate_task(data: dict[str, Any], business: dict[str, Any], repo_root: Pat
     if not isinstance(domains, list) or not domains:
         errors.append("approved_domains must be a non-empty array")
     else:
-        invalid_domains = [domain for domain in domains if not isinstance(domain, str) or not DOMAIN_RE.fullmatch(domain)]
+        invalid_domains = [domain for domain in domains if not is_valid_domain(domain)]
         if invalid_domains:
             errors.append(f"invalid approved domains: {invalid_domains}")
         if len(domains) != len(set(domains)):
@@ -174,6 +223,10 @@ def validate_task(data: dict[str, Any], business: dict[str, Any], repo_root: Pat
             errors.append("business_profile must remain inside the repository")
         if not profile_path.is_file():
             errors.append(f"business_profile does not exist: {profile_path_value}")
+        if business_path is not None and profile_path != business_path.resolve():
+            errors.append(
+                "business_profile must reference the same profile supplied by --business"
+            )
     else:
         errors.append("business_profile must be a repository-relative JSON path")
 
@@ -211,6 +264,12 @@ def validate_task(data: dict[str, Any], business: dict[str, Any], repo_root: Pat
     prohibited = data.get("prohibited_actions", [])
     if "bypass-access-controls" not in prohibited:
         errors.append("prohibited_actions must include bypass-access-controls")
+    for policy_name, action in POLICY_TO_PROHIBITED_ACTION.items():
+        if policies.get(policy_name) is False and action not in prohibited:
+            errors.append(
+                f"prohibited_actions must include {action!r} when "
+                f"business policy {policy_name} is false"
+            )
 
     outputs = require_object(data, "outputs", errors)
     formats = outputs.get("formats")
@@ -250,8 +309,26 @@ def main() -> int:
         return 1
 
     errors = [
+        *validate_against_schema(
+            business,
+            repo_root / "schemas/business-profile.schema.json",
+            "business",
+        ),
+        *validate_against_schema(
+            task,
+            repo_root / "schemas/browser-task.schema.json",
+            "task",
+        ),
         *(f"business: {error}" for error in validate_business(business)),
-        *(f"task: {error}" for error in validate_task(task, business, repo_root)),
+        *(
+            f"task: {error}"
+            for error in validate_task(
+                task,
+                business,
+                repo_root,
+                args.business,
+            )
+        ),
     ]
 
     if errors:

@@ -70,6 +70,7 @@ universal-browser-agent-os/
 Validate the safe example:
 
 ```bash
+python -m pip install -r requirements-dev.txt
 python scripts/validate_configs.py \
   --business configs/example-business/business-profile.json \
   --task templates/competitor-research/task.json

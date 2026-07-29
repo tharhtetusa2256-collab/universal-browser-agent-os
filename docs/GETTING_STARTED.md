@@ -25,12 +25,15 @@ Replace example domains, keywords, limits, and output requirements. Start with `
 From the repository root:
 
 ```bash
+python -m pip install -r requirements-dev.txt
 python scripts/validate_configs.py \
   --business configs/example-business/business-profile.json \
   --task templates/competitor-research/task.json
 ```
 
-The validator checks required fields, domain syntax, limits, approval policy, policy compatibility, repository-relative paths, and secret-like field names.
+The validator enforces the Draft 2020-12 JSON Schemas, then checks domain syntax,
+limits, approval policy, policy compatibility, repository-relative paths, and
+secret-like field names.
 
 ## 4. Submit a workflow request
 
