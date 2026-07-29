@@ -34,11 +34,21 @@ jobs:
             --business configs/example-business/business-profile.json \
             --task templates/competitor-research/task.json
 
+      - name: Confirm secret-like field is rejected
+        run: |
+          if python scripts/validate_configs.py \
+            --business configs/example-business/business-profile.json \
+            --task tests/fixtures/invalid-secret-task.json; then
+            echo "Validator unexpectedly accepted a secret-like field."
+            exit 1
+          fi
+          echo "Negative security fixture was rejected as expected."
+
       - name: Check JSON syntax
         run: |
-          find schemas configs templates -name '*.json' -print0 | xargs -0 -n1 python -m json.tool > /dev/null
+          find schemas configs templates tests -name '*.json' -print0 | xargs -0 -n1 python -m json.tool > /dev/null
 
-      - name: Check master prompt safeguards
+      - name: Check master prompt safeguards and size
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -56,7 +66,9 @@ jobs:
           missing = [item for item in required if item not in prompt]
           if missing:
               raise SystemExit(f"Master prompt is missing safeguards: {missing}")
-          print("Master prompt safeguard check passed.")
+          if len(prompt) > 20_000:
+              raise SystemExit(f"Master prompt exceeds 20,000 characters: {len(prompt)}")
+          print(f"Master prompt safeguard and size checks passed: {len(prompt)} characters.")
           PY
 
       - name: Scan changed files for likely committed secrets
