@@ -92,7 +92,12 @@ def validate_read_only_task(task: Mapping[str, Any]) -> None:
         except DomainPolicyError as exc:
             errors.append(str(exc))
 
-    prohibited = set(task.get("prohibited_actions", []))
+    prohibited_value = task.get("prohibited_actions", [])
+    if not isinstance(prohibited_value, list):
+        errors.append("prohibited_actions must be an array")
+        prohibited: set[str] = set()
+    else:
+        prohibited = {item for item in prohibited_value if isinstance(item, str)}
     missing_prohibitions = sorted(REQUIRED_PROHIBITIONS - prohibited)
     if missing_prohibitions:
         errors.append(
@@ -292,6 +297,7 @@ async def run_read_only_task(
             page.on("popup", lambda popup: asyncio.create_task(popup.close()))
             screenshot_name = _safe_filename(index, requested_url)
             screenshot_path = destination / screenshot_name
+            screenshot_captured = False
             final_url: str | None = None
             title: str | None = None
             status_code: int | None = None
@@ -310,12 +316,14 @@ async def run_read_only_task(
                 except Exception:
                     text_excerpt = None
                 await page.screenshot(path=str(screenshot_path), full_page=False)
+                screenshot_captured = screenshot_path.exists()
             except Exception as exc:
                 error = f"{type(exc).__name__}: {exc}"
                 try:
                     await page.screenshot(path=str(screenshot_path), full_page=False)
+                    screenshot_captured = screenshot_path.exists()
                 except Exception:
-                    screenshot_path = Path()
+                    screenshot_captured = False
             finally:
                 pages.append(
                     PageEvidence(
@@ -325,11 +333,7 @@ async def run_read_only_task(
                         accessed_at=_utc_now(),
                         status_code=status_code,
                         text_excerpt=text_excerpt,
-                        screenshot=(
-                            screenshot_name
-                            if screenshot_path and screenshot_path.exists()
-                            else None
-                        ),
+                        screenshot=screenshot_name if screenshot_captured else None,
                         error=error,
                     )
                 )
