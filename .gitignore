@@ -1,0 +1,39 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+secrets/
+credentials/
+auth-state/
+
+# Runtime output
+artifacts/
+results/
+reports/generated/
+logs/
+tmp/
+.browser-data/
+playwright-report/
+test-results/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Node
+node_modules/
+.npm/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
