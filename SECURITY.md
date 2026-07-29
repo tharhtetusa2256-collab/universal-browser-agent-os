@@ -21,6 +21,18 @@ Examples include sending, publishing, purchasing, accepting terms, deleting, can
 
 The approval preview must show the target, exact action, submitted data, expected effect, cost, and reversibility.
 
+## Read-only Playwright runtime
+
+The v0.2 adapter accepts only `research-only` and `test` tasks. It enforces exact
+approved domains, public DNS results, standard public ports, GET/HEAD requests,
+manual redirect validation, blocked WebSockets, disabled service workers, and
+rejected downloads. It does not click controls, fill forms, submit data, or use
+stored browser sessions.
+
+Runtime artifacts are limited to ignored repository directories. Review reports,
+screenshots, and traces before sharing them because public pages can still contain
+unexpected or personal information.
+
 ## Reporting vulnerabilities
 
 Open a private security advisory when available. Do not include exploitable credentials or customer data in a public issue.

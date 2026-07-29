@@ -16,28 +16,35 @@ The same core can support e-commerce, restaurants, real estate, agencies, educat
 
 ## Current release
 
-**v0.1 — Universal Control Plane MVP**
+**v0.2 — Read-only Playwright Runtime MVP**
 
 Included:
 
 - universal Browser Agent prompt engineer;
 - structured GitHub Issue Form;
 - business-profile and browser-task contracts;
-- dependency-free Python validation;
+- Draft 2020-12 schema and policy validation;
 - read-only competitor-research template;
 - prompt-injection and approval-gate rules;
 - GitHub Actions quality and secret checks;
-- architecture and getting-started documentation.
+- architecture and getting-started documentation;
+- validated task loading for the Playwright adapter;
+- exact approved-domain and public-network enforcement;
+- GET/HEAD-only browser request policy with WebSockets blocked;
+- structured extraction with custom CSS selectors;
+- retry, timeout, item-limit, missing-data, and duplicate controls;
+- JSON, CSV, Markdown, screenshot, and Playwright trace evidence.
 
 Not included yet:
 
-- live browser execution;
 - authenticated sessions;
 - login, CAPTCHA, passkeys, or 2FA handling;
+- clicking controls, filling forms, or submitting data;
 - sending, publishing, purchasing, deleting, or account changes;
 - hosted dashboard or SaaS billing.
 
-This boundary is intentional. The next milestone is a safe read-only Playwright adapter.
+This boundary is intentional. The runtime is deliberately limited to public,
+read-only research until its safety and reliability are measured in pilot runs.
 
 ## Repository structure
 
@@ -45,6 +52,9 @@ This boundary is intentional. The next milestone is a safe read-only Playwright 
 universal-browser-agent-os/
 ├── README.md
 ├── SECURITY.md
+├── pyproject.toml
+├── src/
+│   └── universal_browser_agent/
 ├── prompts/
 │   └── system/
 ├── schemas/
@@ -58,6 +68,7 @@ universal-browser-agent-os/
 │   └── validate_configs.py
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── adr/
 │   └── GETTING_STARTED.md
 └── .github/
     ├── ISSUE_TEMPLATE/
@@ -67,11 +78,25 @@ universal-browser-agent-os/
 
 ## Quick start
 
-Validate the safe example:
+Install the package and Chromium:
 
 ```bash
 python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
+```
+
+Validate the safe example:
+
+```bash
 python scripts/validate_configs.py \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json
+```
+
+Run the example read-only task:
+
+```bash
+uba-run \
   --business configs/example-business/business-profile.json \
   --task templates/competitor-research/task.json
 ```
@@ -100,13 +125,13 @@ Create a client implementation by copying the example profile and a task templat
 
 ### v0.2 — Read-only Playwright adapter
 
-- validated task loading;
-- approved-domain enforcement;
-- public-page navigation;
-- structured extraction;
-- screenshots, traces, JSON, CSV, and Markdown reports;
-- retry and timeout controls;
-- GitHub Actions test execution.
+- [x] validated task loading;
+- [x] approved-domain enforcement;
+- [x] public-page navigation;
+- [x] structured extraction;
+- [x] screenshots, traces, JSON, CSV, and Markdown reports;
+- [x] retry and timeout controls;
+- [x] GitHub Actions test execution.
 
 ### v0.3 — Approval service
 
