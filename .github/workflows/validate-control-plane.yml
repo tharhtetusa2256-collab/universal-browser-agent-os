@@ -1,0 +1,103 @@
+name: Validate Universal Control Plane
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compile validator
+        run: python -m py_compile scripts/validate_configs.py
+
+      - name: Validate example business and task
+        run: |
+          python scripts/validate_configs.py \
+            --business configs/example-business/business-profile.json \
+            --task templates/competitor-research/task.json
+
+      - name: Check JSON syntax
+        run: |
+          find schemas configs templates -name '*.json' -print0 | xargs -0 -n1 python -m json.tool > /dev/null
+
+      - name: Check master prompt safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          prompt = Path("prompts/system/universal-browser-agent-prompt-engineer.md").read_text(encoding="utf-8")
+          required = [
+              "Reply with `CONFIRM`",
+              "Prompt-Injection Defense",
+              "Human Approval Gates",
+              "Authentication and Secrets",
+              "Stop Conditions",
+              "Test Mode",
+              "Business-neutral design rules",
+          ]
+          missing = [item for item in required if item not in prompt]
+          if missing:
+              raise SystemExit(f"Master prompt is missing safeguards: {missing}")
+          print("Master prompt safeguard check passed.")
+          PY
+
+      - name: Scan changed files for likely committed secrets
+        shell: bash
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          event = os.environ.get("GITHUB_EVENT_NAME", "")
+          if event == "pull_request":
+              base = os.environ.get("GITHUB_BASE_REF", "main")
+              subprocess.run(["git", "fetch", "origin", base, "--depth=1"], check=True)
+              output = subprocess.check_output(
+                  ["git", "diff", "--name-only", f"origin/{base}...HEAD"],
+                  text=True,
+              )
+              paths = [Path(line) for line in output.splitlines() if line]
+          else:
+              paths = [Path(line) for line in subprocess.check_output(["git", "ls-files"], text=True).splitlines()]
+
+          patterns = (
+              re.compile("-----BEGIN " + r"(?:RSA|OPENSSH|EC) PRIVATE KEY-----"),
+              re.compile("gh" + r"[pousr]_[A-Za-z0-9_]{30,}"),
+              re.compile("github" + r"_pat_[A-Za-z0-9_]{20,}"),
+              re.compile("sk-" + r"[A-Za-z0-9_-]{30,}"),
+          )
+          findings = []
+          for path in paths:
+              if not path.is_file() or any(part in {".git", "artifacts", "logs", "tmp"} for part in path.parts):
+                  continue
+              try:
+                  text = path.read_text(encoding="utf-8")
+              except UnicodeDecodeError:
+                  continue
+              for pattern in patterns:
+                  if pattern.search(text):
+                      findings.append(f"{path}: matches likely secret pattern")
+          if findings:
+              raise SystemExit("\n".join(findings))
+          print("Likely-secret scan passed.")
+          PY
