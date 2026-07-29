@@ -1,0 +1,144 @@
+name: Universal Browser Agent Request
+description: Propose a business-neutral browser workflow for research, feasibility review, blueprint approval, and implementation.
+title: "[Browser Agent] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the outcome, not just the clicks. Never include passwords, tokens, cookies, payment data, private customer data, or production exports.
+
+  - type: input
+    id: business_outcome
+    attributes:
+      label: Business outcome
+      description: What measurable result should this workflow produce?
+      placeholder: Reduce weekly competitor research from four hours to thirty minutes.
+    validations:
+      required: true
+
+  - type: input
+    id: industry
+    attributes:
+      label: Industry or use case
+      placeholder: E-commerce, restaurant, real estate, agency, education, or another field.
+    validations:
+      required: true
+
+  - type: textarea
+    id: workflow
+    attributes:
+      label: Desired workflow
+      description: Explain the starting point, intended actions, and final state.
+    validations:
+      required: true
+
+  - type: textarea
+    id: approved_domains
+    attributes:
+      label: Approved domains
+      description: List every website the agent may access, one domain per line.
+      placeholder: |
+        example.com
+        example.org
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: Frequency
+      options:
+        - One-time
+        - Daily
+        - Weekly
+        - Monthly
+        - Event-triggered
+        - Not decided
+    validations:
+      required: true
+
+  - type: textarea
+    id: inputs
+    attributes:
+      label: Inputs
+      description: Describe files, URLs, records, keywords, or dates. Use fake examples for sensitive data.
+    validations:
+      required: true
+
+  - type: textarea
+    id: outputs
+    attributes:
+      label: Outputs and evidence
+      description: Define files, schema, destination, source URLs, timestamps, screenshots, and reports.
+    validations:
+      required: true
+
+  - type: input
+    id: scale
+    attributes:
+      label: Expected scale
+      placeholder: 100 products across five approved domains.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: login
+    attributes:
+      label: Login requirement
+      options:
+        - No login
+        - Existing authenticated session
+        - Human takeover available
+        - Unknown
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: actions
+    attributes:
+      label: Possible consequential actions
+      description: Select all that may be required. Each selected action needs an immediate approval gate.
+      options:
+        - label: Send a message or email
+        - label: Publish content
+        - label: Submit a form
+        - label: Purchase or commit funds
+        - label: Delete or permanently modify data
+        - label: Change permissions or account settings
+        - label: Upload confidential data
+        - label: Accept terms or agreements
+        - label: None — read-only workflow
+
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Preferred runtime
+      options:
+        - Platform-neutral specification
+        - Playwright
+        - Browser Use
+        - Computer-use agent
+        - Manus
+        - Other or not decided
+    validations:
+      required: true
+
+  - type: textarea
+    id: success
+    attributes:
+      label: Success and validation rules
+      description: How should the system prove completion and handle duplicates, missing data, and failures?
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Safety acknowledgement
+      options:
+        - label: I have not included credentials, payment data, or private customer data.
+          required: true
+        - label: I understand that the blueprint must be confirmed before final prompt generation.
+          required: true
+        - label: I understand that consequential actions require separate approval.
+          required: true

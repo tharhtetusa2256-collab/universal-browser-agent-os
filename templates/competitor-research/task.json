@@ -1,0 +1,52 @@
+{
+  "task_version": "1.0",
+  "task_id": "public-competitor-research-demo",
+  "business_profile": "configs/example-business/business-profile.json",
+  "objective": "Collect public product or service information from approved websites and create an evidence-backed comparison report without logging in or performing state-changing actions.",
+  "mode": "research-only",
+  "approved_domains": [
+    "example.com",
+    "example.org"
+  ],
+  "prohibited_actions": [
+    "login",
+    "send",
+    "publish",
+    "purchase",
+    "delete",
+    "change-permissions",
+    "upload-confidential-data",
+    "bypass-access-controls"
+  ],
+  "inputs": {
+    "keywords": ["sample product"],
+    "date_range": "current public information",
+    "notes": "Replace example domains and keywords before use."
+  },
+  "outputs": {
+    "formats": ["json", "csv", "markdown", "screenshots"],
+    "destination": "artifacts/public-competitor-research-demo/",
+    "require_source_urls": true,
+    "require_timestamps": true,
+    "required_fields": ["name", "summary", "source_url", "accessed_at"]
+  },
+  "limits": {
+    "max_items": 10,
+    "max_retries": 2,
+    "timeout_minutes": 15
+  },
+  "approval_policy": {
+    "require_blueprint_confirmation": true,
+    "require_test_approval": true,
+    "consequential_actions": []
+  },
+  "validation": {
+    "success_criteria": [
+      "Every result contains a source URL and access timestamp",
+      "Duplicate source URLs are rejected",
+      "Failures and missing values are reported"
+    ],
+    "duplicate_key": "source_url",
+    "on_missing_data": "include-null-and-report"
+  }
+}

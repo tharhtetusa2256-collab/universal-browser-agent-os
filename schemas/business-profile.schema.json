@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/business-profile.schema.json",
+  "title": "Universal Browser Agent Business Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["profile_version", "business", "goals", "policies", "integrations"],
+  "properties": {
+    "profile_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+    "business": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "industry", "country", "timezone"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"},
+        "name": {"type": "string", "minLength": 2, "maxLength": 120},
+        "industry": {"type": "string", "minLength": 2, "maxLength": 80},
+        "country": {"type": "string", "minLength": 2, "maxLength": 80},
+        "timezone": {"type": "string", "minLength": 3, "maxLength": 80},
+        "languages": {"type": "array", "items": {"type": "string"}, "uniqueItems": true, "default": ["en"]}
+      }
+    },
+    "goals": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {"type": "string", "minLength": 4, "maxLength": 240}
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["require_blueprint_confirmation", "require_test_mode", "allow_login", "allow_sending", "allow_publishing", "allow_purchasing", "allow_deletion"],
+      "properties": {
+        "require_blueprint_confirmation": {"const": true},
+        "require_test_mode": {"type": "boolean"},
+        "allow_login": {"type": "boolean"},
+        "allow_sending": {"type": "boolean"},
+        "allow_publishing": {"type": "boolean"},
+        "allow_purchasing": {"type": "boolean"},
+        "allow_deletion": {"type": "boolean"},
+        "data_classification": {"enum": ["public", "internal", "confidential", "regulated"], "default": "public"}
+      }
+    },
+    "integrations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["browser_runtime", "outputs"],
+      "properties": {
+        "browser_runtime": {"enum": ["platform-neutral", "playwright", "browser-use", "computer-use", "manus", "other"]},
+        "outputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["local-files", "github", "google-sheets", "notion", "airtable", "crm", "webhook", "other"]}
+        }
+      }
+    }
+  }
+}
