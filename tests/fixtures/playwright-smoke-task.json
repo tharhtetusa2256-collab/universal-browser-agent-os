@@ -1,0 +1,61 @@
+{
+  "task_version": "1.0",
+  "task_id": "playwright-public-smoke-test",
+  "business_profile": "configs/example-business/business-profile.json",
+  "objective": "Open one approved public webpage in a fresh browser context and produce evidence without login, clicks, forms, downloads, or state-changing actions.",
+  "mode": "test",
+  "approved_domains": [
+    "example.com"
+  ],
+  "prohibited_actions": [
+    "login",
+    "send",
+    "publish",
+    "purchase",
+    "delete",
+    "change-permissions",
+    "upload-confidential-data",
+    "bypass-access-controls"
+  ],
+  "inputs": {
+    "urls": [
+      "https://example.com/"
+    ],
+    "notes": "Public, non-authenticated GitHub Actions smoke test only."
+  },
+  "outputs": {
+    "formats": [
+      "json",
+      "csv",
+      "markdown",
+      "screenshots"
+    ],
+    "destination": "artifacts/playwright-smoke/",
+    "require_source_urls": true,
+    "require_timestamps": true,
+    "required_fields": [
+      "title",
+      "source_url",
+      "accessed_at"
+    ]
+  },
+  "limits": {
+    "max_items": 1,
+    "max_retries": 0,
+    "timeout_minutes": 2
+  },
+  "approval_policy": {
+    "require_blueprint_confirmation": true,
+    "require_test_approval": true,
+    "consequential_actions": []
+  },
+  "validation": {
+    "success_criteria": [
+      "The approved public page is opened successfully",
+      "A source URL and access timestamp are recorded",
+      "JSON, CSV, Markdown, and screenshot evidence are produced"
+    ],
+    "duplicate_key": "source_url",
+    "on_missing_data": "fail"
+  }
+}

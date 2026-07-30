@@ -40,6 +40,12 @@ jobs:
             --business configs/example-business/business-profile.json \
             --task templates/competitor-research/task.json
 
+      - name: Validate Playwright smoke task
+        run: |
+          python scripts/validate_configs.py \
+            --business configs/example-business/business-profile.json \
+            --task tests/fixtures/playwright-smoke-task.json
+
       - name: Confirm secret-like field is rejected
         run: |
           if python scripts/validate_configs.py \
@@ -119,3 +125,79 @@ jobs:
               raise SystemExit("\n".join(findings))
           print("Likely-secret scan passed.")
           PY
+
+  playwright-smoke:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            requirements-runtime.txt
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --disable-pip-version-check \
+            -r requirements-dev.txt \
+            -r requirements-runtime.txt
+
+      - name: Install Chromium and system dependencies
+        run: python -m playwright install --with-deps chromium
+
+      - name: Run public read-only smoke test
+        run: |
+          python -m adapters.browsers.playwright.runner \
+            --task tests/fixtures/playwright-smoke-task.json \
+            --output artifacts/playwright-smoke
+
+      - name: Verify evidence report
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          output = Path("artifacts/playwright-smoke")
+          report = json.loads((output / "report.json").read_text(encoding="utf-8"))
+          pages = report.get("pages", [])
+
+          if report.get("status") != "completed":
+              raise SystemExit(f"Unexpected smoke-test status: {report.get('status')}")
+          if len(pages) != 1:
+              raise SystemExit(f"Expected one evidence page, received {len(pages)}")
+
+          page = pages[0]
+          if page.get("error") is not None:
+              raise SystemExit(f"Browser smoke test reported an error: {page['error']}")
+          if not str(page.get("final_url", "")).startswith("https://example.com"):
+              raise SystemExit(f"Unexpected final URL: {page.get('final_url')}")
+          if not page.get("accessed_at"):
+              raise SystemExit("Evidence is missing accessed_at")
+
+          screenshot = page.get("screenshot")
+          if not screenshot or not (output / screenshot).is_file():
+              raise SystemExit("Expected screenshot evidence was not created")
+
+          for filename in ("report.json", "report.csv", "report.md"):
+              if not (output / filename).is_file():
+                  raise SystemExit(f"Missing evidence file: {filename}")
+
+          print("Playwright smoke-test evidence verified.")
+          PY
+
+      - name: Upload smoke-test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-evidence
+          path: artifacts/playwright-smoke/
+          if-no-files-found: error
+          retention-days: 7
