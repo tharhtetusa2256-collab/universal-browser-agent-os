@@ -33,6 +33,23 @@ Runtime artifacts are limited to ignored repository directories. Review reports,
 screenshots, and traces before sharing them because public pages can still contain
 unexpected or personal information.
 
+## v0.3 service boundary
+
+- All `/v1` API routes require a high-entropy bearer token.
+- Run creation is idempotent and accepts only repository-relative JSON files
+  under `configs/` or `templates/`.
+- A created run is not executable until a durable blueprint approval confirms
+  the objective and approved domains.
+- OpenRouter output is an untrusted extraction draft. It cannot expand domains,
+  authorize actions, or directly enqueue a run.
+- Notion and outbound webhook delivery use environment-only credentials.
+- Output delivery failure is recorded without deleting or rewriting browser
+  evidence.
+- The SQLite pilot queue supports one worker. Do not scale worker replicas
+  without replacing the queue and testing claim semantics.
+- Keep the API behind HTTPS and never expose the container's port 8000 directly
+  to the public internet.
+
 ## Reporting vulnerabilities
 
 Open a private security advisory when available. Do not include exploitable credentials or customer data in a public issue.

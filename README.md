@@ -16,10 +16,17 @@ The same core can support e-commerce, restaurants, real estate, agencies, educat
 
 ## Current release
 
-**v0.2 — Read-only Playwright Runtime MVP**
+**v0.3 — Approval-gated service foundation**
 
 Included:
 
+- authenticated FastAPI control-plane endpoints;
+- idempotent run creation and durable SQLite run queue;
+- durable blueprint approval and append-only audit events;
+- a single-worker execution contract for low-cost VPS pilots;
+- OpenRouter extraction previews that cannot authorize execution;
+- optional Notion run summaries and signed Make.com-compatible webhooks;
+- Docker Compose and Hostinger VPS deployment guidance;
 - universal Browser Agent prompt engineer;
 - structured GitHub Issue Form;
 - business-profile and browser-task contracts;
@@ -53,8 +60,12 @@ universal-browser-agent-os/
 ├── README.md
 ├── SECURITY.md
 ├── pyproject.toml
+├── Dockerfile
+├── compose.yml
 ├── src/
 │   └── universal_browser_agent/
+│       ├── adapters/
+│       └── service/
 ├── prompts/
 │   └── system/
 ├── schemas/
@@ -68,6 +79,7 @@ universal-browser-agent-os/
 │   └── validate_configs.py
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── HOSTINGER_DEPLOYMENT.md
 │   ├── adr/
 │   └── GETTING_STARTED.md
 └── .github/
@@ -76,7 +88,7 @@ universal-browser-agent-os/
     └── pull_request_template.md
 ```
 
-## Quick start
+## Local runtime quick start
 
 Install the package and Chromium:
 
@@ -102,6 +114,38 @@ uba-run \
 ```
 
 Create a client implementation by copying the example profile and a task template. Change configuration, not core safety rules.
+
+## Service quick start
+
+Install the service and create a local environment file:
+
+```bash
+python -m pip install -r requirements-dev.txt
+cp .env.example .env
+```
+
+Set a unique `UBA_API_TOKEN`, then start the API and worker in separate
+terminals:
+
+```bash
+set -a
+source .env
+set +a
+uba-api
+```
+
+```bash
+set -a
+source .env
+set +a
+uba-worker
+```
+
+Creating a run validates its configuration but leaves it in
+`awaiting-blueprint-approval`. The worker cannot claim it until an explicit
+approval is durably recorded. See
+[Hostinger deployment](docs/HOSTINGER_DEPLOYMENT.md) for the API flow and VPS
+configuration.
 
 ## Core principles
 
@@ -135,14 +179,17 @@ Create a client implementation by copying the example profile and a task templat
 
 ### v0.3 — Approval service
 
-- durable blueprint status;
-- test-to-production gate;
-- action-specific approval records;
-- idempotency and recovery contracts.
+- [x] durable blueprint status;
+- [x] idempotent run creation and recovery contract;
+- [x] append-only approval and run audit events;
+- [x] single-VPS API and worker deployment;
+- [ ] test-to-production gate for a future production-capable runtime;
+- [ ] action-specific execution approvals for future consequential adapters.
 
 ### v0.4 — Adapters and industry packs
 
-- Google Sheets, Notion, Airtable, CRM, and webhook outputs;
+- [x] Notion summary, OpenRouter preview, and signed webhook foundations;
+- [ ] Google Sheets, Airtable, and CRM outputs;
 - e-commerce, restaurant, real-estate, agency, education, and professional-services packs.
 
 ### v1.0 — Pilot-ready platform

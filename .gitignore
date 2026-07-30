@@ -18,6 +18,7 @@ results/
 reports/generated/
 logs/
 tmp/
+service-data/
 .browser-data/
 playwright-report/
 test-results/

@@ -4,17 +4,26 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-browser-agent-os"
-version = "0.2.0"
-description = "A safety-gated, read-only Playwright runtime for validated browser tasks"
+version = "0.3.0"
+description = "An approval-gated service and read-only Playwright runtime"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
+  "fastapi>=0.116,<1",
   "jsonschema>=4.23,<5",
   "playwright>=1.54,<2",
+  "uvicorn>=0.35,<1",
+]
+
+[project.optional-dependencies]
+test = [
+  "httpx>=0.28,<1",
 ]
 
 [project.scripts]
 uba-run = "universal_browser_agent.cli:main"
+uba-api = "universal_browser_agent.service.api:main"
+uba-worker = "universal_browser_agent.service.worker:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

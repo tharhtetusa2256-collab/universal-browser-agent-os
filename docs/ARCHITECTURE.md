@@ -36,6 +36,7 @@ Current MVP files:
 - `configs/`
 - `templates/`
 - `scripts/validate_configs.py`
+- `src/universal_browser_agent/service/`
 - `.github/`
 
 ### 2. Business configuration
@@ -70,7 +71,31 @@ extracts configured fields, and writes evidence artifacts outside Git.
 Login and consequential actions remain out of scope until the read-only path is
 reliable.
 
-### 5. Industry packs
+### 5. Durable service
+
+The v0.3 service separates API intake from browser execution:
+
+```text
+Notion / Make.com / API client
+  -> authenticated FastAPI request
+  -> configuration and runtime validation
+  -> awaiting-blueprint-approval
+  -> durable approval record
+  -> SQLite queue
+  -> single Playwright worker
+  -> evidence report
+  -> compact Notion and signed-webhook summaries
+```
+
+SQLite is the source of truth for pilot run state, approvals, idempotency, and
+audit events. Notion and Make.com are replaceable triggers and output adapters;
+they do not authorize execution by changing a page or scenario status alone.
+
+OpenRouter is a planning adapter, not an execution adapter. It can suggest
+selectors and required extraction fields only after the service validates the
+public navigation scope. Its response is still untrusted and non-executable.
+
+### 6. Industry packs
 
 Industry packs add terminology, field mappings, validation rules, and workflow examples without changing core safety behavior.
 
@@ -116,9 +141,16 @@ These approvals must never be treated as interchangeable.
 
 Read-only steps may retry within configured limits. State-changing steps require a durable operation identifier, before-and-after verification, and proof that a prior attempt did not succeed before retrying.
 
+The service binds every accepted request to a unique idempotency key. Reusing a
+key with different source or configuration data is rejected. A worker startup
+may requeue a `running` job only after a configured stale interval greater than
+the current maximum task timeout, and that recovery is appended to the audit
+event stream.
+
 ## MVP boundary
 
-Version 0.2 is a public-page, read-only runtime MVP. It performs no login,
+Version 0.3 adds a durable service around the v0.2 public-page, read-only
+runtime. It performs no login,
 clicking, form filling, submission, upload, download acceptance, or
 state-changing action. This separation is intentional: the evidence and safety
 path must be reliable before authenticated browser execution is introduced.

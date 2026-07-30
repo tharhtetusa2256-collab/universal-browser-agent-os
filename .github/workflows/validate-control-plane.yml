@@ -16,12 +16,12 @@ jobs:
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -36,6 +36,37 @@ jobs:
 
       - name: Run validator unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+
+      - name: Validate service import and API construction
+        env:
+          UBA_API_TOKEN: ci-only-token-with-more-than-24-characters
+          UBA_DATABASE_PATH: /tmp/uba-ci.sqlite3
+        run: |
+          python - <<'PY'
+          from universal_browser_agent.service.api import create_app
+          from universal_browser_agent.service.config import ServiceSettings
+
+          settings = ServiceSettings.from_env()
+          app = create_app(settings)
+          paths = {route.path for route in app.routes}
+          required = {
+              "/health",
+              "/v1/runs",
+              "/v1/runs/{run_id}",
+              "/v1/runs/{run_id}/approvals",
+              "/v1/plans/extraction-preview",
+          }
+          missing = required - paths
+          if missing:
+              raise SystemExit(f"Service API routes missing: {sorted(missing)}")
+          print("Service API construction passed.")
+          PY
+
+      - name: Validate Docker Compose configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          rm .env
 
       - name: Validate example business and task
         run: |
