@@ -5,7 +5,7 @@ The primary packaged runtime is now `uba-run` in
 existing PR #3 commands and imports do not break while operator workflows move
 to the validated package API.
 
-This adapter is the first executable runtime for Universal Browser Agent OS. It intentionally supports public, read-only browsing only.
+This adapter is the first executable runtime for Tharhtet Browser Agent. It intentionally supports public, read-only browsing only.
 
 ## Safety boundary
 

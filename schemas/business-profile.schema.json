@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/schemas/business-profile.schema.json",
-  "title": "Universal Browser Agent Business Profile",
+  "title": "Tharhtet Browser Agent Business Profile",
   "type": "object",
   "additionalProperties": false,
   "required": ["profile_version", "business", "goals", "policies", "integrations"],

@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/notion-readonly.schema.json",
+  "title": "Tharhtet Browser Agent Notion Read-Only Connector",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "config_version",
+    "client_id",
+    "notion_api_version",
+    "max_page_size",
+    "data_sources"
+  ],
+  "properties": {
+    "config_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "notion_api_version": {
+      "const": "2026-03-11"
+    },
+    "max_page_size": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 100
+    },
+    "data_sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "name", "data_source_id", "allowed_properties"],
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 160
+          },
+          "data_source_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+          },
+          "allowed_properties": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            }
+          }
+        }
+      }
+    }
+  }
+}

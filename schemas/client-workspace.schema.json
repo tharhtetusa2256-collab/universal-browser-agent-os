@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://example.invalid/schemas/client-workspace.schema.json",
-  "title": "Universal Browser Agent Client Workspace",
+  "title": "Tharhtet Browser Agent Client Workspace",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -47,7 +47,7 @@
     },
     "tasks": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "maxItems": 100,
       "items": {
         "type": "object",
@@ -67,6 +67,10 @@
           }
         }
       }
+    },
+    "notion_readonly_config": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+\\.json$"
     },
     "allowed_integrations": {
       "type": "array",

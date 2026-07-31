@@ -13,6 +13,10 @@ Rename the directory and set the same lowercase slug in `workspace.json` and
 that will record approvals. Keep credentials, cookies, tokens, and private data
 out of every workspace file.
 
+A client may start with an empty `tasks` array for a connector-only pilot. Bind
+an optional read-only connector through a validated workspace config, then add a
+runtime task only after the connector contract and sample output pass review.
+
 ## 2. Add client-scoped tasks
 
 The first safe template is:
@@ -46,7 +50,7 @@ secret-like field names.
 
 ## 4. Submit a workflow request
 
-Use GitHub Issues and select **Universal Browser Agent Request**. Describe the business outcome, approved domains, inputs, outputs, scale, login requirements, consequential actions, runtime, and proof of success.
+Use GitHub Issues and select **Tharhtet Browser Agent Request**. Describe the business outcome, approved domains, inputs, outputs, scale, login requirements, consequential actions, runtime, and proof of success.
 
 ## 5. Run the prompt-engineering lifecycle
 

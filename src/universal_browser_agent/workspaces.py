@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from .models import RuntimeTask
+from .notion_readonly import (
+    NotionReadOnlyConfig,
+    load_notion_readonly_config,
+)
 from .validation import (
     ConfigurationValidationError,
     find_secret_like_keys,
@@ -46,6 +50,7 @@ class ClientWorkspace:
     artifact_root: str
     tasks: tuple[WorkspaceTask, ...]
     allowed_integrations: tuple[str, ...]
+    notion_readonly_config: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -209,9 +214,40 @@ class WorkspaceRegistry:
             errors.append("workspace business profile does not exist")
         else:
             business_data = load_json(business_path)
+            errors.extend(
+                validate_against_schema(
+                    business_data,
+                    self.repo_root / "schemas/business-profile.schema.json",
+                    "business",
+                )
+            )
             business_id = business_data.get("business", {}).get("id")
             if business_id != client_id:
                 errors.append("business.id must match workspace client_id")
+
+        notion_config_path: Path | None = None
+        notion_config_value = data.get("notion_readonly_config")
+        if notion_config_value is not None:
+            try:
+                notion_config_path = self._safe_child(
+                    workspace_root,
+                    str(notion_config_value),
+                    "notion_readonly_config",
+                )
+                notion_config = load_notion_readonly_config(
+                    notion_config_path,
+                    self.repo_root / "schemas/notion-readonly.schema.json",
+                )
+                if notion_config.client_id != client_id:
+                    errors.append(
+                        "notion_readonly client_id must match workspace client_id"
+                    )
+            except WorkspaceValidationError as exc:
+                errors.extend(exc.errors)
+            except ConfigurationValidationError as exc:
+                errors.extend(exc.errors)
+            except ValueError as exc:
+                errors.append(str(exc))
 
         if errors:
             raise WorkspaceValidationError(errors)
@@ -226,4 +262,20 @@ class WorkspaceRegistry:
             artifact_root=expected_artifact_root,
             tasks=tuple(tasks),
             allowed_integrations=tuple(data.get("allowed_integrations", [])),
+            notion_readonly_config=(
+                str(notion_config_path.relative_to(self.repo_root))
+                if notion_config_path is not None
+                else None
+            ),
+        )
+
+    def load_notion_readonly(self, client_id: str) -> NotionReadOnlyConfig:
+        workspace = self.load(client_id)
+        if workspace.notion_readonly_config is None:
+            raise WorkspaceValidationError(
+                [f"Notion read-only connector is not configured: {client_id}"]
+            )
+        return load_notion_readonly_config(
+            self.repo_root / workspace.notion_readonly_config,
+            self.repo_root / "schemas/notion-readonly.schema.json",
         )

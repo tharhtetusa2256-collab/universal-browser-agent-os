@@ -1,0 +1,68 @@
+{
+  "config_version": "1.0",
+  "client_id": "tech-power",
+  "notion_api_version": "2026-03-11",
+  "max_page_size": 25,
+  "data_sources": [
+    {
+      "key": "goal-requests",
+      "name": "Goal Requests — AutoBuild",
+      "data_source_id": "f7d390db-8b62-4888-80f7-8fafdaa91d7d",
+      "allowed_properties": [
+        "Goal", "Original Request", "Normalized Goal", "Priority", "Status",
+        "Current Phase", "Execution Mode", "Approval Required", "Risk Level",
+        "Definition of Done", "Created", "Updated"
+      ]
+    },
+    {
+      "key": "workflow-blueprints",
+      "name": "Workflow Blueprints — AutoBuild",
+      "data_source_id": "4645d0ae-9aef-4359-9ce5-b4723ccb20d8",
+      "allowed_properties": [
+        "Workflow Name", "Build Status", "Business Purpose", "Input Schema",
+        "Output Schema", "Workflow Steps", "Risk Level", "Environment",
+        "Trigger", "Updated"
+      ]
+    },
+    {
+      "key": "approval-queue",
+      "name": "Approval Queue — AutoBuild",
+      "data_source_id": "40416867-df41-4591-bc6d-60ac8a8bbafb",
+      "allowed_properties": [
+        "Approval", "Approval Scope", "Decision", "Approver", "Decision Time",
+        "Requested Action", "Risk Level", "Impact Summary", "Updated"
+      ]
+    },
+    {
+      "key": "execution-runs",
+      "name": "Execution Runs — AutoBuild",
+      "data_source_id": "67e83cd7-7cef-4003-8880-2cb43eee1825",
+      "allowed_properties": [
+        "Run", "Run ID", "Run Status", "Environment", "Input Summary",
+        "Output Summary", "Evidence URL", "Error Code", "Error Message",
+        "Started At", "Finished At", "Updated"
+      ]
+    },
+    {
+      "key": "test-verification",
+      "name": "Test & Verification — AutoBuild",
+      "data_source_id": "1cf32c3a-739b-4fd4-ae04-0d430cb90260",
+      "allowed_properties": [
+        "Test Case", "Result", "Environment", "Expected Result",
+        "Actual Result", "Failure Reason", "Evidence URL", "Tested At", "Updated"
+      ]
+    },
+    {
+      "key": "marketing-intelligence",
+      "name": "Marketing Intelligence — Tech Power",
+      "data_source_id": "c7ab36be-3a74-4d9b-8d39-a07547c59eb2",
+      "allowed_properties": [
+        "Intelligence Title", "Intelligence Type", "Status", "Summary",
+        "Customer Problem", "Key Impact on Tech Power", "Recommended Action",
+        "Recommended Content Angle", "Evidence Level", "Evidence Notes",
+        "Confidence Level", "Relevance Score", "Actionability Score",
+        "Source Name", "Source Type", "Source URL", "Review Date"
+      ]
+    }
+  ]
+}

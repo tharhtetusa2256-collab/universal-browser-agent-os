@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Universal Browser Agent OS business and task configuration.
+"""Validate Tharhtet Browser Agent business and task configuration.
 
 This validator intentionally uses only the Python standard library so it can run
 in a fresh GitHub Actions runner. JSON Schema files remain the formal contract;
@@ -372,5 +372,5 @@ def main() -> int:
 
     print(f"Validated business profile: {args.business}")
     print(f"Validated browser task: {args.task}")
-    print("Universal Browser Agent OS configuration is valid.")
+    print("Tharhtet Browser Agent configuration is valid.")
     return 0

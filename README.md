@@ -1,7 +1,11 @@
-# Universal Browser Agent OS
+# Tharhtet Browser Agent
 
 An operator-owned system for creating and running researched, reviewed,
 validated, and approval-gated Browser Agent workflows across multiple clients.
+
+**Tharhtet Browser Agent** is the product name. The repository, Python package,
+environment variables, and `uba-*` commands keep their existing technical names
+to preserve compatibility with installed environments and automation.
 
 ```text
 Request -> Research -> Interview -> Feasibility -> Recommendation
@@ -11,7 +15,7 @@ Request -> Research -> Interview -> Feasibility -> Recommendation
 
 ## Why this exists
 
-Most browser-automation projects mix client details, prompts, credentials, browser code, and outputs in one fragile workflow. Universal Browser Agent OS separates reusable core policy from business configuration, task templates, runtime adapters, and generated artifacts.
+Most browser-automation projects mix client details, prompts, credentials, browser code, and outputs in one fragile workflow. Tharhtet Browser Agent separates reusable core policy from business configuration, task templates, runtime adapters, and generated artifacts.
 
 The repository owner operates the system privately. Each client receives an
 isolated configuration and task workspace while the reusable safety and runtime
@@ -29,6 +33,8 @@ Included:
 - owner-only blueprint approval for client runs;
 - enforced `artifacts/clients/<client-id>/` output isolation;
 - per-client external-integration allowlists;
+- client-scoped Notion read-only data-source and property allowlists;
+- `uba-notion-read` schema/query CLI with no write operations;
 - `uba-workspaces` operator validation CLI;
 - authenticated FastAPI control-plane endpoints;
 - idempotent run creation and durable SQLite run queue;
@@ -37,7 +43,7 @@ Included:
 - OpenRouter extraction previews that cannot authorize execution;
 - optional Notion run summaries and signed Make.com-compatible webhooks;
 - Docker Compose and Hostinger VPS deployment guidance;
-- universal Browser Agent prompt engineer;
+- reusable Browser Agent prompt engineer;
 - structured GitHub Issue Form;
 - business-profile and browser-task contracts;
 - Draft 2020-12 schema and policy validation;
@@ -73,10 +79,14 @@ universal-browser-agent-os/
 ├── Dockerfile
 ├── compose.yml
 ├── clients/
-│   └── example-client/
+│   ├── example-client/
+│   │   ├── workspace.json
+│   │   ├── business-profile.json
+│   │   └── tasks/
+│   └── tech-power/
 │       ├── workspace.json
 │       ├── business-profile.json
-│       └── tasks/
+│       └── notion-readonly.json
 ├── src/
 │   └── universal_browser_agent/
 │       ├── adapters/
@@ -86,7 +96,8 @@ universal-browser-agent-os/
 ├── schemas/
 │   ├── business-profile.schema.json
 │   ├── browser-task.schema.json
-│   └── client-workspace.schema.json
+│   ├── client-workspace.schema.json
+│   └── notion-readonly.schema.json
 ├── configs/
 │   └── example-business/
 ├── templates/
@@ -158,6 +169,13 @@ Idempotency-Key: example-client:2026-07-31:public-research
 The API stores the client and workspace identity with the run. Only the
 manifest's `owner_id` can approve that client-scoped run.
 
+A workspace may begin with no browser tasks when it has a connector-only pilot.
+For the Tech Power Notion reader, inspect the committed allowlist first:
+
+```bash
+uba-notion-read list --client tech-power
+```
+
 ## Service quick start
 
 Install the service and create a local environment file:
@@ -205,6 +223,8 @@ configuration.
 
 - [Architecture](docs/ARCHITECTURE.md)
 - [Getting started](docs/GETTING_STARTED.md)
+- [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
+- [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
 - [Security policy](SECURITY.md)
 - [Master prompt engineer](prompts/system/universal-browser-agent-prompt-engineer.md)
 
