@@ -50,6 +50,20 @@ unexpected or personal information.
 - Keep the API behind HTTPS and never expose the container's port 8000 directly
   to the public internet.
 
+## v0.4 client workspace boundary
+
+- Client manifests contain configuration only; secrets and session state remain
+  prohibited.
+- Preferred run creation uses a validated `client_id` and registered `task_id`
+  instead of caller-supplied file paths.
+- Business profiles and task files must remain inside their client workspace.
+- Task evidence must remain under `artifacts/clients/<client-id>/`.
+- A client-scoped blueprint may be approved only by the manifest's `owner_id`.
+- Notion and webhook delivery are disabled unless the client manifest explicitly
+  allows the integration.
+- Workspace isolation assumes one trusted repository operator. It is not a
+  substitute for tenant authentication or authorization in a client-facing SaaS.
+
 ## Reporting vulnerabilities
 
 Open a private security advisory when available. Do not include exploitable credentials or customer data in a public issue.

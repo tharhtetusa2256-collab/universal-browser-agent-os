@@ -1,16 +1,19 @@
 # Getting Started
 
-## 1. Create a business profile
+## 1. Create a client workspace
 
-Copy:
+Copy the complete example workspace:
 
 ```text
-configs/example-business/business-profile.json
+clients/example-client/
 ```
 
-Give the copy a lowercase business ID. Keep credentials and private data out of the file.
+Rename the directory and set the same lowercase slug in `workspace.json` and
+`business-profile.json`. Set `owner_id` to the repository operator identity
+that will record approvals. Keep credentials, cookies, tokens, and private data
+out of every workspace file.
 
-## 2. Choose or copy a task template
+## 2. Add client-scoped tasks
 
 The first safe template is:
 
@@ -18,7 +21,11 @@ The first safe template is:
 templates/competitor-research/task.json
 ```
 
-Replace example domains, keywords, limits, and output requirements. Start with `research-only` or `test` mode.
+Copy a template into `clients/<client-id>/tasks/`, bind its
+`business_profile` to the client profile, and register it in `workspace.json`.
+Replace example domains, keywords, limits, and output requirements. Start with
+`research-only` or `test` mode. Its destination must remain under
+`artifacts/clients/<client-id>/`.
 
 ## 3. Validate locally
 
@@ -27,9 +34,10 @@ From the repository root:
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m playwright install chromium
+uba-workspaces validate --client example-client
 python scripts/validate_configs.py \
-  --business configs/example-business/business-profile.json \
-  --task templates/competitor-research/task.json
+  --business clients/example-client/business-profile.json \
+  --task clients/example-client/tasks/public-research.json
 ```
 
 The validator enforces the Draft 2020-12 JSON Schemas, then checks domain syntax,
@@ -54,15 +62,22 @@ The assistant should research, interview, assess feasibility, compare options, p
 
 Store approved prompts, templates, schemas, and adapters in a feature branch. GitHub Actions checks example configuration, JSON syntax, required safety sections, and likely committed secrets.
 
-## 7. Run the read-only adapter
+## 7. Create a client-scoped service run
+
+Prefer `POST /v1/clients/{client_id}/runs` with a registered `task_id`. The
+service resolves configuration paths from the validated manifest, stores the
+client identity on the run, and waits for the configured owner to approve the
+blueprint. Use `GET /v1/clients/{client_id}/runs` for client-specific history.
+
+## 8. Run the read-only adapter directly
 
 Add explicit `inputs.start_urls` and optional `inputs.selectors` to the task.
 Every start URL and browser request must use an exact approved domain.
 
 ```bash
 uba-run \
-  --business configs/example-business/business-profile.json \
-  --task templates/competitor-research/task.json
+  --business clients/example-client/business-profile.json \
+  --task clients/example-client/tasks/public-research.json
 ```
 
 The adapter:

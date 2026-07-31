@@ -51,6 +51,9 @@ jobs:
           paths = {route.path for route in app.routes}
           required = {
               "/health",
+              "/v1/clients",
+              "/v1/clients/{client_id}",
+              "/v1/clients/{client_id}/runs",
               "/v1/runs",
               "/v1/runs/{run_id}",
               "/v1/runs/{run_id}/approvals",
@@ -70,6 +73,7 @@ jobs:
 
       - name: Validate example business and task
         run: |
+          uba-workspaces validate --client example-client
           python scripts/validate_configs.py \
             --business configs/example-business/business-profile.json \
             --task templates/competitor-research/task.json

@@ -1,6 +1,7 @@
 # Universal Browser Agent OS
 
-An industry-neutral control plane for turning a business outcome into a researched, reviewed, validated, and approval-gated Browser Agent workflow.
+An operator-owned system for creating and running researched, reviewed,
+validated, and approval-gated Browser Agent workflows across multiple clients.
 
 ```text
 Request -> Research -> Interview -> Feasibility -> Recommendation
@@ -12,14 +13,23 @@ Request -> Research -> Interview -> Feasibility -> Recommendation
 
 Most browser-automation projects mix client details, prompts, credentials, browser code, and outputs in one fragile workflow. Universal Browser Agent OS separates reusable core policy from business configuration, task templates, runtime adapters, and generated artifacts.
 
-The same core can support e-commerce, restaurants, real estate, agencies, education, and professional services without rewriting safety logic for each business.
+The repository owner operates the system privately. Each client receives an
+isolated configuration and task workspace while the reusable safety and runtime
+core remains unchanged. This is not a client-facing SaaS.
 
 ## Current release
 
-**v0.3 — Approval-gated service foundation**
+**v0.4 — Operator-owned client workspace foundation**
 
 Included:
 
+- repository-native `clients/<client-id>/` workspaces;
+- client workspace schema and registry validation;
+- client-scoped API run creation and history;
+- owner-only blueprint approval for client runs;
+- enforced `artifacts/clients/<client-id>/` output isolation;
+- per-client external-integration allowlists;
+- `uba-workspaces` operator validation CLI;
 - authenticated FastAPI control-plane endpoints;
 - idempotent run creation and durable SQLite run queue;
 - durable blueprint approval and append-only audit events;
@@ -62,6 +72,11 @@ universal-browser-agent-os/
 ├── pyproject.toml
 ├── Dockerfile
 ├── compose.yml
+├── clients/
+│   └── example-client/
+│       ├── workspace.json
+│       ├── business-profile.json
+│       └── tasks/
 ├── src/
 │   └── universal_browser_agent/
 │       ├── adapters/
@@ -70,7 +85,8 @@ universal-browser-agent-os/
 │   └── system/
 ├── schemas/
 │   ├── business-profile.schema.json
-│   └── browser-task.schema.json
+│   ├── browser-task.schema.json
+│   └── client-workspace.schema.json
 ├── configs/
 │   └── example-business/
 ├── templates/
@@ -113,7 +129,34 @@ uba-run \
   --task templates/competitor-research/task.json
 ```
 
-Create a client implementation by copying the example profile and a task template. Change configuration, not core safety rules.
+For one-off compatibility runs, use the profile and task paths above. For normal
+multi-client operation, create a client workspace instead of passing arbitrary
+configuration paths.
+
+## Client workspace quick start
+
+Inspect and validate the repository-native example:
+
+```bash
+uba-workspaces list
+uba-workspaces validate --client example-client
+```
+
+A workspace binds its owner, business profile, enabled tasks, artifact root,
+and allowed output integrations. Client task outputs must remain under
+`artifacts/clients/<client-id>/`.
+
+Create an approval-gated run through the preferred client API:
+
+```text
+POST /v1/clients/example-client/runs
+Idempotency-Key: example-client:2026-07-31:public-research
+
+{"task_id":"example-client-public-research","source":"api"}
+```
+
+The API stores the client and workspace identity with the run. Only the
+manifest's `owner_id` can approve that client-scoped run.
 
 ## Service quick start
 
@@ -188,13 +231,15 @@ configuration.
 
 ### v0.4 — Adapters and industry packs
 
+- [x] operator-owned multi-client workspace registry;
+- [x] client-scoped runs, artifacts, approvals, and integration allowlists;
 - [x] Notion summary, OpenRouter preview, and signed webhook foundations;
 - [ ] Google Sheets, Airtable, and CRM outputs;
 - e-commerce, restaurant, real-estate, agency, education, and professional-services packs.
 
 ### v1.0 — Pilot-ready platform
 
-- multi-business isolation;
+- encrypted client secret references and authenticated session isolation;
 - monitoring and audit trail;
 - deployment guide;
 - measured reliability and cost targets.

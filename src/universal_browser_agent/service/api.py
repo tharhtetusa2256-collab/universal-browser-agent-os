@@ -19,6 +19,11 @@ class RunCreateRequest(BaseModel):
     source: str = Field(default="api", min_length=2, max_length=40)
 
 
+class ClientRunCreateRequest(BaseModel):
+    task_id: str = Field(min_length=3, max_length=80)
+    source: str = Field(default="api", min_length=2, max_length=40)
+
+
 class ApprovalRequest(BaseModel):
     kind: str = Field(default="blueprint")
     decision: str
@@ -39,7 +44,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     orchestrator = RunOrchestrator(resolved, store)
     app = FastAPI(
         title="Universal Browser Agent OS",
-        version="0.3.0",
+        version="0.4.0",
         description=(
             "Approval-gated API for validated public-page browser tasks. "
             "State-changing browser actions remain unsupported."
@@ -56,7 +61,65 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.3.0"}
+        return {"status": "ok", "version": "0.4.0"}
+
+    @app.get("/v1/clients", dependencies=[Depends(require_token)])
+    def list_clients() -> dict[str, Any]:
+        try:
+            clients = [
+                workspace.to_dict()
+                for workspace in orchestrator.list_workspaces()
+            ]
+        except (ServiceRequestError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"clients": clients}
+
+    @app.get(
+        "/v1/clients/{client_id}",
+        dependencies=[Depends(require_token)],
+    )
+    def get_client(client_id: str) -> dict[str, Any]:
+        try:
+            return {"client": orchestrator.get_workspace(client_id).to_dict()}
+        except ServiceRequestError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @app.get(
+        "/v1/clients/{client_id}/runs",
+        dependencies=[Depends(require_token)],
+    )
+    def list_client_runs(client_id: str, limit: int = 100) -> dict[str, Any]:
+        try:
+            orchestrator.get_workspace(client_id)
+            runs = store.list_runs(client_id=client_id, limit=limit)
+        except ServiceRequestError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"runs": [record.to_dict() for record in runs]}
+
+    @app.post(
+        "/v1/clients/{client_id}/runs",
+        dependencies=[Depends(require_token)],
+        status_code=status.HTTP_202_ACCEPTED,
+    )
+    def create_client_run(
+        client_id: str,
+        request: ClientRunCreateRequest,
+        idempotency_key: str = Header(alias="Idempotency-Key"),
+    ) -> dict[str, Any]:
+        try:
+            record, created = orchestrator.create_client_run(
+                client_id=client_id,
+                task_id=request.task_id,
+                idempotency_key=idempotency_key,
+                source=request.source,
+            )
+        except RunStateError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except (ServiceRequestError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {"created": created, "run": record.to_dict()}
 
     @app.post(
         "/v1/runs",

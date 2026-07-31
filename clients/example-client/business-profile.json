@@ -1,0 +1,29 @@
+{
+  "profile_version": "1.0",
+  "business": {
+    "id": "example-client",
+    "name": "Example Client",
+    "industry": "general-services",
+    "country": "Example Country",
+    "timezone": "UTC",
+    "languages": ["en"]
+  },
+  "goals": [
+    "Reduce manual public-web research time",
+    "Produce evidence-backed reports with source URLs"
+  ],
+  "policies": {
+    "require_blueprint_confirmation": true,
+    "require_test_mode": true,
+    "allow_login": false,
+    "allow_sending": false,
+    "allow_publishing": false,
+    "allow_purchasing": false,
+    "allow_deletion": false,
+    "data_classification": "public"
+  },
+  "integrations": {
+    "browser_runtime": "playwright",
+    "outputs": ["local-files"]
+  }
+}

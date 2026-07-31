@@ -1,0 +1,50 @@
+{
+  "task_version": "1.0",
+  "task_id": "example-client-public-research",
+  "business_profile": "clients/example-client/business-profile.json",
+  "objective": "Collect public information from approved example websites and produce an evidence-backed client-scoped report.",
+  "mode": "test",
+  "approved_domains": ["example.com", "example.org"],
+  "prohibited_actions": [
+    "login",
+    "send",
+    "publish",
+    "purchase",
+    "delete",
+    "change-permissions",
+    "upload-confidential-data",
+    "bypass-access-controls"
+  ],
+  "inputs": {
+    "start_urls": ["https://example.com/", "https://example.org/"],
+    "keywords": ["example public information"],
+    "selectors": {},
+    "date_range": "current public information"
+  },
+  "outputs": {
+    "formats": ["json", "csv", "markdown", "screenshots"],
+    "destination": "artifacts/clients/example-client/public-research/",
+    "require_source_urls": true,
+    "require_timestamps": true,
+    "required_fields": ["name", "summary", "source_url", "accessed_at"]
+  },
+  "limits": {
+    "max_items": 10,
+    "max_retries": 2,
+    "timeout_minutes": 15
+  },
+  "approval_policy": {
+    "require_blueprint_confirmation": true,
+    "require_test_approval": true,
+    "consequential_actions": []
+  },
+  "validation": {
+    "success_criteria": [
+      "Every result contains a source URL and access timestamp",
+      "Duplicate source URLs are rejected",
+      "Failures and missing values are reported"
+    ],
+    "duplicate_key": "source_url",
+    "on_missing_data": "include-null-and-report"
+  }
+}
