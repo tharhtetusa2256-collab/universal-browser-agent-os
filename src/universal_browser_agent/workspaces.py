@@ -7,6 +7,10 @@ from pathlib import Path
 from typing import Any
 
 from .models import RuntimeTask
+from .secret_broker import (
+    CredentialReferenceConfig,
+    load_credential_reference_config,
+)
 from .notion_readonly import (
     NotionReadOnlyConfig,
     load_notion_readonly_config,
@@ -51,6 +55,7 @@ class ClientWorkspace:
     tasks: tuple[WorkspaceTask, ...]
     allowed_integrations: tuple[str, ...]
     notion_readonly_config: str | None = None
+    credential_references_config: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -249,6 +254,30 @@ class WorkspaceRegistry:
             except ValueError as exc:
                 errors.append(str(exc))
 
+        credential_config_path: Path | None = None
+        credential_config_value = data.get("credential_references_config")
+        if credential_config_value is not None:
+            try:
+                credential_config_path = self._safe_child(
+                    workspace_root,
+                    str(credential_config_value),
+                    "credential_references_config",
+                )
+                credential_config = load_credential_reference_config(
+                    credential_config_path,
+                    self.repo_root / "schemas/credential-references.schema.json",
+                )
+                if credential_config.client_id != client_id:
+                    errors.append(
+                        "credential references client_id must match workspace client_id"
+                    )
+            except WorkspaceValidationError as exc:
+                errors.extend(exc.errors)
+            except ConfigurationValidationError as exc:
+                errors.extend(exc.errors)
+            except ValueError as exc:
+                errors.append(str(exc))
+
         if errors:
             raise WorkspaceValidationError(errors)
 
@@ -267,6 +296,11 @@ class WorkspaceRegistry:
                 if notion_config_path is not None
                 else None
             ),
+            credential_references_config=(
+                str(credential_config_path.relative_to(self.repo_root))
+                if credential_config_path is not None
+                else None
+            ),
         )
 
     def load_notion_readonly(self, client_id: str) -> NotionReadOnlyConfig:
@@ -278,4 +312,17 @@ class WorkspaceRegistry:
         return load_notion_readonly_config(
             self.repo_root / workspace.notion_readonly_config,
             self.repo_root / "schemas/notion-readonly.schema.json",
+        )
+
+    def load_credential_references(
+        self, client_id: str
+    ) -> CredentialReferenceConfig:
+        workspace = self.load(client_id)
+        if workspace.credential_references_config is None:
+            raise WorkspaceValidationError(
+                [f"Credential references are not configured: {client_id}"]
+            )
+        return load_credential_reference_config(
+            self.repo_root / workspace.credential_references_config,
+            self.repo_root / "schemas/credential-references.schema.json",
         )

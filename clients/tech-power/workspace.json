@@ -8,5 +8,6 @@
   "artifact_root": "artifacts/clients/tech-power",
   "tasks": [],
   "notion_readonly_config": "notion-readonly.json",
+  "credential_references_config": "credential-references.json",
   "allowed_integrations": ["local-files"]
 }

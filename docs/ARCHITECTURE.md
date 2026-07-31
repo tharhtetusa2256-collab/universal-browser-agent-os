@@ -92,6 +92,27 @@ and filters unexpected properties from responses. It uses a dedicated
 environment token intended for a read-content-only Notion integration. It does
 not expose page, comment, database, or schema mutations.
 
+### Secret plane
+
+Client workspaces store credential metadata and `op://` references, not secret
+values. The client-scoped broker resolves an approved adapter's declared
+capabilities through 1Password only when launching that adapter. The adapter
+subprocess receives no other client's environment variables, while the broker
+records a redacted decision audit outside source control.
+
+```text
+client workspace policy
+  -> fixed adapter and capability allowlist
+  -> 1Password op run reference resolution
+  -> one client-scoped adapter subprocess
+  -> redacted local credential audit
+```
+
+The bootstrap service-account token remains outside the repository. Separate
+OS users or containers are still required for strong production process
+isolation because same-user processes can inspect environment state on common
+operating systems.
+
 ### 6. Durable service
 
 The v0.3 service separates API intake from browser execution:

@@ -35,6 +35,9 @@ Included:
 - per-client external-integration allowlists;
 - client-scoped Notion read-only data-source and property allowlists;
 - `uba-notion-read` schema/query CLI with no write operations;
+- client-scoped 1Password reference policy and fixed-command secret broker;
+- redacted credential decision audit with no references, values, or arguments;
+- `uba-secrets` metadata and brokered-run CLI;
 - `uba-workspaces` operator validation CLI;
 - authenticated FastAPI control-plane endpoints;
 - idempotent run creation and durable SQLite run queue;
@@ -86,7 +89,8 @@ universal-browser-agent-os/
 │   └── tech-power/
 │       ├── workspace.json
 │       ├── business-profile.json
-│       └── notion-readonly.json
+│       ├── notion-readonly.json
+│       └── credential-references.json
 ├── src/
 │   └── universal_browser_agent/
 │       ├── adapters/
@@ -97,6 +101,7 @@ universal-browser-agent-os/
 │   ├── business-profile.schema.json
 │   ├── browser-task.schema.json
 │   ├── client-workspace.schema.json
+│   ├── credential-references.schema.json
 │   └── notion-readonly.schema.json
 ├── configs/
 │   └── example-business/
@@ -174,7 +179,12 @@ For the Tech Power Notion reader, inspect the committed allowlist first:
 
 ```bash
 uba-notion-read list --client tech-power
+uba-secrets list --client tech-power
 ```
+
+The secret command displays policy metadata only. Real vaults, service accounts,
+and tokens are not created by this repository. See the secret-management guide
+before enabling brokered reads.
 
 ## Service quick start
 
@@ -225,6 +235,7 @@ configuration.
 - [Getting started](docs/GETTING_STARTED.md)
 - [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
 - [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
+- [Client secret management](docs/SECRET_MANAGEMENT.md)
 - [Security policy](SECURITY.md)
 - [Master prompt engineer](prompts/system/universal-browser-agent-prompt-engineer.md)
 
@@ -254,12 +265,13 @@ configuration.
 - [x] operator-owned multi-client workspace registry;
 - [x] client-scoped runs, artifacts, approvals, and integration allowlists;
 - [x] Notion summary, OpenRouter preview, and signed webhook foundations;
+- [x] client-scoped secret-reference and broker foundation;
 - [ ] Google Sheets, Airtable, and CRM outputs;
 - e-commerce, restaurant, real-estate, agency, education, and professional-services packs.
 
 ### v1.0 — Pilot-ready platform
 
-- encrypted client secret references and authenticated session isolation;
+- real vault/service-identity provisioning and authenticated session isolation;
 - monitoring and audit trail;
 - deployment guide;
 - measured reliability and cost targets.

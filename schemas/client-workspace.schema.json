@@ -72,6 +72,10 @@
       "type": "string",
       "pattern": "^[A-Za-z0-9_.-]+\\.json$"
     },
+    "credential_references_config": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+\\.json$"
+    },
     "allowed_integrations": {
       "type": "array",
       "uniqueItems": true,
