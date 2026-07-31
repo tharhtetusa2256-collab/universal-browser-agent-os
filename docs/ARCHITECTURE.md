@@ -2,7 +2,9 @@
 
 ## Product goal
 
-Universal Browser Agent OS is an industry-neutral control plane for turning a business outcome into a researched, reviewed, validated, and approval-gated browser workflow.
+Universal Browser Agent OS is a private, operator-owned control plane for
+turning client business outcomes into researched, reviewed, validated, and
+approval-gated browser workflows.
 
 The core must remain reusable. Company, country, industry, website, and client details belong in configuration, templates, optional industry packs, or adapters.
 
@@ -36,41 +38,77 @@ Current MVP files:
 - `configs/`
 - `templates/`
 - `scripts/validate_configs.py`
+- `src/universal_browser_agent/service/`
 - `.github/`
 
 ### 2. Business configuration
 
 A business profile defines identity, industry, goals, policies, runtime preference, and output integrations. It must not contain credentials or raw private data.
 
-### 3. Workflow templates
+### 3. Operator-owned client workspaces
+
+Each client lives under `clients/<client-id>/`. A validated manifest binds the
+business profile, exact owner identity, enabled tasks, artifact root, and
+allowed external outputs. The service accepts `client_id` plus `task_id` and
+resolves paths from that manifest, preventing callers from mixing client files.
+
+This is configuration isolation for one trusted operator. It is not SaaS
+tenant isolation and does not provide client accounts, roles, billing, or
+self-service administration.
+
+### 4. Workflow templates
 
 Templates define repeatable tasks such as competitor research, website QA, product monitoring, lead research, and draft content preparation.
 
 A template becomes client-specific only when combined with an approved business profile and task inputs.
 
-### 4. Runtime adapters
+### 5. Runtime adapters
 
-Future adapters execute validated specifications:
+Adapters execute validated specifications:
 
 ```text
-adapters/
-  browsers/
-    playwright/
-    browser-use/
-    computer-use/
-  outputs/
-    local-files/
-    github/
-    google-sheets/
-    notion/
-    airtable/
-    crm/
-    webhook/
+src/universal_browser_agent/
+  cli.py
+  models.py
+  playwright_runtime.py
+  policy.py
+  reporting.py
+  validation.py
 ```
 
-The first runtime should be a read-only Playwright adapter. Login and consequential actions should remain out of scope until the read-only path is reliable.
+The first runtime is the read-only Playwright adapter in
+`src/universal_browser_agent/`. It validates configuration before launch,
+enforces exact approved domains and public DNS, permits only GET and HEAD,
+extracts configured fields, and writes evidence artifacts outside Git.
 
-### 5. Industry packs
+Login and consequential actions remain out of scope until the read-only path is
+reliable.
+
+### 6. Durable service
+
+The v0.3 service separates API intake from browser execution:
+
+```text
+Notion / Make.com / API client
+  -> authenticated FastAPI request
+  -> configuration and runtime validation
+  -> awaiting-blueprint-approval
+  -> durable approval record
+  -> SQLite queue
+  -> single Playwright worker
+  -> evidence report
+  -> compact Notion and signed-webhook summaries
+```
+
+SQLite is the source of truth for pilot run state, approvals, idempotency, and
+audit events. Notion and Make.com are replaceable triggers and output adapters;
+they do not authorize execution by changing a page or scenario status alone.
+
+OpenRouter is a planning adapter, not an execution adapter. It can suggest
+selectors and required extraction fields only after the service validates the
+public navigation scope. Its response is still untrusted and non-executable.
+
+### 7. Industry packs
 
 Industry packs add terminology, field mappings, validation rules, and workflow examples without changing core safety behavior.
 
@@ -91,15 +129,17 @@ Web pages, emails, documents, comments, advertisements, pop-ups, downloads, and 
 
 ## Multi-business isolation
 
-Each business should have separate:
+Each client workspace has separate:
 
 - configuration directory;
 - approved-domain list;
-- GitHub Environment;
-- secret scope;
-- browser session storage;
 - artifact and report location;
-- usage and budget limits.
+- enabled tasks;
+- allowed output integrations;
+- owner approval identity.
+
+Authenticated adapters additionally require separate secret scope, browser
+session storage, usage limits, and backup policy before they may be enabled.
 
 Generated artifacts, browser state, and secrets stay outside source control.
 
@@ -116,6 +156,17 @@ These approvals must never be treated as interchangeable.
 
 Read-only steps may retry within configured limits. State-changing steps require a durable operation identifier, before-and-after verification, and proof that a prior attempt did not succeed before retrying.
 
+The service binds every accepted request to a unique idempotency key. Reusing a
+key with different source or configuration data is rejected. A worker startup
+may requeue a `running` job only after a configured stale interval greater than
+the current maximum task timeout, and that recovery is appended to the audit
+event stream.
+
 ## MVP boundary
 
-Version 0.1 is a control-plane MVP. It does not claim to be a live autonomous browser runtime. This separation is intentional: policies and contracts should be stable before authenticated browser execution is introduced.
+Version 0.4 adds operator-owned client workspaces around the durable v0.3
+service and v0.2 public-page, read-only
+runtime. It performs no login,
+clicking, form filling, submission, upload, download acceptance, or
+state-changing action. This separation is intentional: the evidence and safety
+path must be reliable before authenticated browser execution is introduced.

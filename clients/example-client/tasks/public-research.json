@@ -1,13 +1,10 @@
 {
   "task_version": "1.0",
-  "task_id": "public-competitor-research-demo",
-  "business_profile": "configs/example-business/business-profile.json",
-  "objective": "Collect public product or service information from approved websites and create an evidence-backed comparison report without logging in or performing state-changing actions.",
-  "mode": "research-only",
-  "approved_domains": [
-    "example.com",
-    "example.org"
-  ],
+  "task_id": "example-client-public-research",
+  "business_profile": "clients/example-client/business-profile.json",
+  "objective": "Collect public information from approved example websites and produce an evidence-backed client-scoped report.",
+  "mode": "test",
+  "approved_domains": ["example.com", "example.org"],
   "prohibited_actions": [
     "login",
     "send",
@@ -19,18 +16,14 @@
     "bypass-access-controls"
   ],
   "inputs": {
-    "start_urls": [
-      "https://example.com/",
-      "https://example.org/"
-    ],
-    "keywords": ["sample product"],
+    "start_urls": ["https://example.com/", "https://example.org/"],
+    "keywords": ["example public information"],
     "selectors": {},
-    "date_range": "current public information",
-    "notes": "Replace example domains and keywords before use."
+    "date_range": "current public information"
   },
   "outputs": {
     "formats": ["json", "csv", "markdown", "screenshots"],
-    "destination": "artifacts/public-competitor-research-demo/",
+    "destination": "artifacts/clients/example-client/public-research/",
     "require_source_urls": true,
     "require_timestamps": true,
     "required_fields": ["name", "summary", "source_url", "accessed_at"]

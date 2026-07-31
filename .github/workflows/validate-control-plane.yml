@@ -1,4 +1,4 @@
-name: Validate Universal Control Plane
+name: Validate Control Plane and Runtime
 
 on:
   pull_request:
@@ -12,30 +12,68 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
-      - name: Install validation dependencies
+      - name: Install project dependencies
         run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
-      - name: Compile validator
-        run: python -m py_compile scripts/validate_configs.py
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
+      - name: Compile Python sources
+        run: python -m compileall -q scripts src tests
 
       - name: Run validator unit tests
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
+      - name: Validate service import and API construction
+        env:
+          UBA_API_TOKEN: ci-only-token-with-more-than-24-characters
+          UBA_DATABASE_PATH: /tmp/uba-ci.sqlite3
+        run: |
+          python - <<'PY'
+          from universal_browser_agent.service.api import create_app
+          from universal_browser_agent.service.config import ServiceSettings
+
+          settings = ServiceSettings.from_env()
+          app = create_app(settings)
+          paths = {route.path for route in app.routes}
+          required = {
+              "/health",
+              "/v1/clients",
+              "/v1/clients/{client_id}",
+              "/v1/clients/{client_id}/runs",
+              "/v1/runs",
+              "/v1/runs/{run_id}",
+              "/v1/runs/{run_id}/approvals",
+              "/v1/plans/extraction-preview",
+          }
+          missing = required - paths
+          if missing:
+              raise SystemExit(f"Service API routes missing: {sorted(missing)}")
+          print("Service API construction passed.")
+          PY
+
+      - name: Validate Docker Compose configuration
+        run: |
+          cp .env.example .env
+          docker compose config --quiet
+          rm .env
+
       - name: Validate example business and task
         run: |
+          uba-workspaces validate --client example-client
           python scripts/validate_configs.py \
             --business configs/example-business/business-profile.json \
             --task templates/competitor-research/task.json
@@ -142,22 +180,18 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements-dev.txt
-            requirements-runtime.txt
 
       - name: Install runtime dependencies
-        run: |
-          python -m pip install --disable-pip-version-check \
-            -r requirements-dev.txt \
-            -r requirements-runtime.txt
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
 
       - name: Install Chromium and system dependencies
         run: python -m playwright install --with-deps chromium
 
       - name: Run public read-only smoke test
         run: |
-          python -m adapters.browsers.playwright.runner \
-            --task tests/fixtures/playwright-smoke-task.json \
-            --output artifacts/playwright-smoke
+          uba-run \
+            --business configs/example-business/business-profile.json \
+            --task tests/fixtures/playwright-smoke-task.json
 
       - name: Verify evidence report
         run: |
@@ -166,28 +200,31 @@ jobs:
           from pathlib import Path
 
           output = Path("artifacts/playwright-smoke")
-          report = json.loads((output / "report.json").read_text(encoding="utf-8"))
-          pages = report.get("pages", [])
+          reports = list(output.glob("*/report.json"))
+          if len(reports) != 1:
+              raise SystemExit(f"Expected one report, received {len(reports)}")
+          report_path = reports[0]
+          run_output = report_path.parent
+          report = json.loads(report_path.read_text(encoding="utf-8"))
+          items = report.get("items", [])
 
           if report.get("status") != "completed":
               raise SystemExit(f"Unexpected smoke-test status: {report.get('status')}")
-          if len(pages) != 1:
-              raise SystemExit(f"Expected one evidence page, received {len(pages)}")
+          if len(items) != 1:
+              raise SystemExit(f"Expected one evidence item, received {len(items)}")
 
-          page = pages[0]
-          if page.get("error") is not None:
-              raise SystemExit(f"Browser smoke test reported an error: {page['error']}")
-          if not str(page.get("final_url", "")).startswith("https://example.com"):
-              raise SystemExit(f"Unexpected final URL: {page.get('final_url')}")
-          if not page.get("accessed_at"):
+          item = items[0]
+          if not str(item.get("source_url", "")).startswith("https://example.com"):
+              raise SystemExit(f"Unexpected source URL: {item.get('source_url')}")
+          if not item.get("accessed_at"):
               raise SystemExit("Evidence is missing accessed_at")
 
-          screenshot = page.get("screenshot")
-          if not screenshot or not (output / screenshot).is_file():
+          screenshot = item.get("screenshot")
+          if not screenshot or not Path(screenshot).is_file():
               raise SystemExit("Expected screenshot evidence was not created")
 
-          for filename in ("report.json", "report.csv", "report.md"):
-              if not (output / filename).is_file():
+          for filename in ("report.json", "items.csv", "report.md", "trace.zip"):
+              if not (run_output / filename).is_file():
                   raise SystemExit(f"Missing evidence file: {filename}")
 
           print("Playwright smoke-test evidence verified.")

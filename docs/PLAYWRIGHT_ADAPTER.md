@@ -1,4 +1,9 @@
-# Read-only Playwright adapter
+# Legacy read-only Playwright adapter compatibility
+
+The primary packaged runtime is now `uba-run` in
+`src/universal_browser_agent/`. This module remains temporarily available so
+existing PR #3 commands and imports do not break while operator workflows move
+to the validated package API.
 
 This adapter is the first executable runtime for Universal Browser Agent OS. It intentionally supports public, read-only browsing only.
 
@@ -22,7 +27,6 @@ Because all third-party network requests are blocked, some pages that depend on 
 
 ```bash
 python -m pip install -r requirements-dev.txt
-python -m pip install -r requirements-runtime.txt
 playwright install chromium
 ```
 
@@ -35,6 +39,16 @@ python scripts/validate_configs.py \
 ```
 
 ## Run
+
+Preferred:
+
+```bash
+uba-run \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json
+```
+
+Legacy compatibility command:
 
 When `inputs.urls` is absent, the adapter visits the HTTPS homepage of each approved domain.
 
@@ -96,4 +110,6 @@ A run is marked `completed-with-errors` when one or more pages fail. Failures ar
 - no durable job queue, approval service, retries, traces, or distributed worker isolation yet;
 - DNS checks reduce SSRF risk but are not a complete defense against every DNS-rebinding scenario.
 
-The next implementation steps should add CI smoke tests, trace capture, bounded retries, isolated worker containers, and signed task specifications before any authenticated browsing is considered.
+The packaged runtime already adds trace capture, bounded retries, strict
+redirect validation, and durable service integration. Authenticated browsing
+and state-changing actions remain unsupported.

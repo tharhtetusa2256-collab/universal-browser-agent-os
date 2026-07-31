@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+.env
+artifacts
+results
+reports/generated
+service-data
+test-results
+playwright-report
