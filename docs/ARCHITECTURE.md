@@ -50,25 +50,25 @@ A template becomes client-specific only when combined with an approved business 
 
 ### 4. Runtime adapters
 
-Future adapters execute validated specifications:
+Adapters execute validated specifications:
 
 ```text
-adapters/
-  browsers/
-    playwright/
-    browser-use/
-    computer-use/
-  outputs/
-    local-files/
-    github/
-    google-sheets/
-    notion/
-    airtable/
-    crm/
-    webhook/
+src/universal_browser_agent/
+  cli.py
+  models.py
+  playwright_runtime.py
+  policy.py
+  reporting.py
+  validation.py
 ```
 
-The first runtime should be a read-only Playwright adapter. Login and consequential actions should remain out of scope until the read-only path is reliable.
+The first runtime is the read-only Playwright adapter in
+`src/universal_browser_agent/`. It validates configuration before launch,
+enforces exact approved domains and public DNS, permits only GET and HEAD,
+extracts configured fields, and writes evidence artifacts outside Git.
+
+Login and consequential actions remain out of scope until the read-only path is
+reliable.
 
 ### 5. Industry packs
 
@@ -118,4 +118,7 @@ Read-only steps may retry within configured limits. State-changing steps require
 
 ## MVP boundary
 
-Version 0.1 is a control-plane MVP. It does not claim to be a live autonomous browser runtime. This separation is intentional: policies and contracts should be stable before authenticated browser execution is introduced.
+Version 0.2 is a public-page, read-only runtime MVP. It performs no login,
+clicking, form filling, submission, upload, download acceptance, or
+state-changing action. This separation is intentional: the evidence and safety
+path must be reliable before authenticated browser execution is introduced.

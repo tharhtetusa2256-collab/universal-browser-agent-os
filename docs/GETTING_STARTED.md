@@ -26,6 +26,7 @@ From the repository root:
 
 ```bash
 python -m pip install -r requirements-dev.txt
+python -m playwright install chromium
 python scripts/validate_configs.py \
   --business configs/example-business/business-profile.json \
   --task templates/competitor-research/task.json
@@ -53,18 +54,29 @@ The assistant should research, interview, assess feasibility, compare options, p
 
 Store approved prompts, templates, schemas, and adapters in a feature branch. GitHub Actions checks example configuration, JSON syntax, required safety sections, and likely committed secrets.
 
-## 7. Runtime status
+## 7. Run the read-only adapter
 
-The current release does not execute browsers. The recommended next milestone is a read-only Playwright adapter that:
+Add explicit `inputs.start_urls` and optional `inputs.selectors` to the task.
+Every start URL and browser request must use an exact approved domain.
 
-- accepts a validated task;
-- enforces the domain allowlist;
-- visits public pages only;
-- extracts configured fields;
+```bash
+uba-run \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json
+```
+
+The adapter:
+
+- accepts a validated `research-only` or `test` task;
+- permits only HTTP GET and HEAD and blocks WebSockets;
+- enforces exact approved domains on navigation, redirects, and subresources;
+- blocks non-public DNS results and non-standard ports;
 - records source URLs and timestamps;
-- saves screenshots on failure;
-- exports JSON, CSV, and Markdown;
+- exports JSON, CSV, Markdown, screenshots, and a Playwright trace;
 - performs no login or state-changing action.
+
+Outputs must remain under `artifacts/`, `results/`, or `reports/generated/`.
+These locations are excluded from source control.
 
 ## Recommended first pilot
 

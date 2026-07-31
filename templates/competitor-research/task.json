@@ -19,7 +19,12 @@
     "bypass-access-controls"
   ],
   "inputs": {
+    "start_urls": [
+      "https://example.com/",
+      "https://example.org/"
+    ],
     "keywords": ["sample product"],
+    "selectors": {},
     "date_range": "current public information",
     "notes": "Replace example domains and keywords before use."
   },
