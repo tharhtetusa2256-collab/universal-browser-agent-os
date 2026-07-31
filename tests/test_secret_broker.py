@@ -70,7 +70,7 @@ class CredentialReferenceConfigTests(unittest.TestCase):
 
     def test_reference_outside_allowed_vault_is_rejected(self) -> None:
         self.data["bindings"][0]["reference"] = (
-            "op://Personal/Notion-Read-Connector/token"
+            "op://Personal/Notion-Read-Connector/credential"
         )
         with self.assertRaisesRegex(
             ConfigurationValidationError, "outside provider.allowed_vaults"
@@ -136,7 +136,7 @@ class OnePasswordSecretBrokerTests(unittest.TestCase):
         self.assertEqual(
             call["env_contents"],
             "UBA_NOTION_READ_TOKEN="
-            "op://Client-Tech-Power-Dev/Notion-Read-Connector/token\n",
+            "op://Client-Tech-Power-Dev/Notion-Read-Connector/credential\n",
         )
         self.assertEqual(call["env_mode"], 0o600)
         self.assertFalse(call["env_file"].exists())
