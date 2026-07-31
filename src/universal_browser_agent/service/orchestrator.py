@@ -18,6 +18,12 @@ from ..validation import (
     is_valid_domain,
     load_validated_configuration,
 )
+from ..workspaces import (
+    ClientWorkspace,
+    WorkspaceNotFoundError,
+    WorkspaceRegistry,
+    WorkspaceValidationError,
+)
 from .config import ServiceSettings
 from .store import RunRecord, RunStore
 
@@ -34,6 +40,16 @@ class RunOrchestrator:
     def __init__(self, settings: ServiceSettings, store: RunStore) -> None:
         self.settings = settings
         self.store = store
+        self.workspaces = WorkspaceRegistry(settings.repo_root)
+
+    def list_workspaces(self) -> list[ClientWorkspace]:
+        return self.workspaces.list()
+
+    def get_workspace(self, client_id: str) -> ClientWorkspace:
+        try:
+            return self.workspaces.load(client_id)
+        except (WorkspaceNotFoundError, WorkspaceValidationError) as exc:
+            raise ServiceRequestError(str(exc)) from exc
 
     def _resolve_json_path(
         self,
@@ -98,6 +114,43 @@ class RunOrchestrator:
             task_path=str(task.relative_to(self.settings.repo_root)),
         )
 
+    def create_client_run(
+        self,
+        *,
+        client_id: str,
+        task_id: str,
+        idempotency_key: str,
+        source: str,
+    ) -> tuple[RunRecord, bool]:
+        if not IDEMPOTENCY_RE.fullmatch(idempotency_key):
+            raise ServiceRequestError(
+                "Idempotency-Key must contain 8-160 safe characters"
+            )
+        if not SOURCE_RE.fullmatch(source):
+            raise ServiceRequestError("source must be a lowercase slug")
+        workspace = self.get_workspace(client_id)
+        if workspace.status != "active":
+            raise ServiceRequestError(
+                f"Client workspace is not active: {workspace.status}"
+            )
+        task_entry = workspace.get_task(task_id)
+        business = self.settings.repo_root / workspace.business_path
+        task = self.settings.repo_root / task_entry.path
+        _, task_data = load_validated_configuration(
+            business,
+            task,
+            self.settings.repo_root,
+        )
+        RuntimeTask.from_dict(task_data)
+        return self.store.create_run(
+            idempotency_key=idempotency_key,
+            source=source,
+            business_path=workspace.business_path,
+            task_path=task_entry.path,
+            client_id=workspace.client_id,
+            workspace_path=workspace.manifest_path,
+        )
+
     def approve_run(
         self,
         *,
@@ -109,6 +162,17 @@ class RunOrchestrator:
     ) -> RunRecord:
         if not actor.strip() or len(actor) > 160:
             raise ServiceRequestError("actor must be a non-empty identifier")
+        record = self.store.get_run(run_id)
+        if record.client_id is not None:
+            workspace = self.get_workspace(record.client_id)
+            if workspace.status != "active":
+                raise ServiceRequestError(
+                    f"Client workspace is not active: {workspace.status}"
+                )
+            if actor.strip() != workspace.owner_id:
+                raise ServiceRequestError(
+                    "Only the configured workspace owner may approve this run"
+                )
         if approval_kind == "blueprint" and decision == "approved":
             required = {"objective_reviewed", "domains_reviewed"}
             if not required.issubset(details):
@@ -174,6 +238,27 @@ class RunOrchestrator:
         if record is None:
             return None
         try:
+            if record.client_id is not None:
+                workspace = self.get_workspace(record.client_id)
+                if workspace.status != "active":
+                    raise ServiceRequestError(
+                        f"Client workspace is not active: {workspace.status}"
+                    )
+                if record.workspace_path != workspace.manifest_path:
+                    raise ServiceRequestError(
+                        "Stored run workspace no longer matches the registry"
+                    )
+                registered_paths = {
+                    task.path for task in workspace.tasks if task.enabled
+                }
+                if (
+                    record.business_path != workspace.business_path
+                    or record.task_path not in registered_paths
+                ):
+                    raise ServiceRequestError(
+                        "Stored run configuration is no longer enabled by the "
+                        "client workspace"
+                    )
             business_path = self.settings.repo_root / record.business_path
             task_path = self.settings.repo_root / record.task_path
             _, task_data = load_validated_configuration(
@@ -199,7 +284,19 @@ class RunOrchestrator:
     async def _publish_outputs(self, record: RunRecord) -> None:
         run = record.to_dict()
         publishers: list[tuple[str, Any]] = []
-        if self.settings.notion_api_key and self.settings.notion_database_id:
+        allowed_integrations: set[str] | None = None
+        if record.client_id is not None:
+            workspace = self.get_workspace(record.client_id)
+            allowed_integrations = set(workspace.allowed_integrations)
+
+        def integration_allowed(name: str) -> bool:
+            return allowed_integrations is None or name in allowed_integrations
+
+        if (
+            integration_allowed("notion")
+            and self.settings.notion_api_key
+            and self.settings.notion_database_id
+        ):
             publishers.append(
                 (
                     "notion",
@@ -210,7 +307,10 @@ class RunOrchestrator:
                     ),
                 )
             )
-        if self.settings.outbound_webhook_url:
+        if (
+            integration_allowed("webhook")
+            and self.settings.outbound_webhook_url
+        ):
             publishers.append(
                 (
                     "webhook",

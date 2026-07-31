@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/client-workspace.schema.json",
+  "title": "Universal Browser Agent Client Workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "workspace_version",
+    "client_id",
+    "display_name",
+    "status",
+    "owner_id",
+    "business_profile",
+    "artifact_root",
+    "tasks"
+  ],
+  "properties": {
+    "workspace_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "client_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 120
+    },
+    "status": {
+      "enum": ["active", "paused", "archived"]
+    },
+    "owner_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "pattern": "^[A-Za-z0-9@._:+-]+$"
+    },
+    "business_profile": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.-]+\\.json$"
+    },
+    "artifact_root": {
+      "type": "string",
+      "pattern": "^artifacts/clients/[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "path", "enabled"],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]{2,80}$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^tasks/[A-Za-z0-9_.-]+\\.json$"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "allowed_integrations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": ["local-files", "github", "notion", "webhook"]
+      },
+      "default": ["local-files"]
+    }
+  }
+}

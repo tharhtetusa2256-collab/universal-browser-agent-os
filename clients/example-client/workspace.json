@@ -1,0 +1,17 @@
+{
+  "workspace_version": "1.0",
+  "client_id": "example-client",
+  "display_name": "Example Client",
+  "status": "active",
+  "owner_id": "owner",
+  "business_profile": "business-profile.json",
+  "artifact_root": "artifacts/clients/example-client",
+  "tasks": [
+    {
+      "task_id": "example-client-public-research",
+      "path": "tasks/public-research.json",
+      "enabled": true
+    }
+  ],
+  "allowed_integrations": ["local-files"]
+}

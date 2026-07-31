@@ -1,6 +1,6 @@
 # Hostinger VPS deployment
 
-This deployment runs the v0.3 API and one read-only worker. It does not enable
+This deployment runs the v0.4 API and one read-only worker. It does not enable
 login, clicking, form submission, publishing, purchasing, deletion, or any
 other state-changing browser action.
 

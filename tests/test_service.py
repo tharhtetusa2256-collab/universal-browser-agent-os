@@ -4,6 +4,8 @@ import asyncio
 import hashlib
 import hmac
 import json
+import shutil
+import sqlite3
 import tempfile
 import unittest
 from datetime import datetime, timedelta, timezone
@@ -25,6 +27,10 @@ from universal_browser_agent.service.orchestrator import (
     ServiceRequestError,
 )
 from universal_browser_agent.service.store import RunStateError, RunStore
+from universal_browser_agent.workspaces import (
+    WorkspaceRegistry,
+    WorkspaceValidationError,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -138,6 +144,95 @@ class RunStoreTests(unittest.TestCase):
             },
         )
 
+    def test_existing_database_is_migrated_for_client_identity(self) -> None:
+        database_path = Path(self.temporary_directory.name) / "legacy.sqlite3"
+        with sqlite3.connect(database_path) as connection:
+            connection.execute(
+                """
+                CREATE TABLE runs (
+                    run_id TEXT PRIMARY KEY,
+                    idempotency_key TEXT NOT NULL UNIQUE,
+                    source TEXT NOT NULL,
+                    business_path TEXT NOT NULL,
+                    task_path TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    result_json TEXT,
+                    error TEXT
+                )
+                """
+            )
+        migrated = RunStore(database_path)
+        with migrated._connection() as connection:
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(runs)"
+                ).fetchall()
+            }
+        self.assertIn("client_id", columns)
+        self.assertIn("workspace_path", columns)
+
+
+class WorkspaceRegistryTests(unittest.TestCase):
+    def test_example_workspace_is_valid_and_client_scoped(self) -> None:
+        workspace = WorkspaceRegistry(REPO_ROOT).load("example-client")
+        self.assertEqual(workspace.owner_id, "owner")
+        self.assertEqual(
+            workspace.artifact_root,
+            "artifacts/clients/example-client",
+        )
+        self.assertEqual(
+            workspace.get_task("example-client-public-research").path,
+            "clients/example-client/tasks/public-research.json",
+        )
+
+    def test_workspace_rejects_output_crossing_client_boundary(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(REPO_ROOT / "schemas", root / "schemas")
+            shutil.copytree(
+                REPO_ROOT / "clients",
+                root / "clients",
+            )
+            task_path = (
+                root
+                / "clients/example-client/tasks/public-research.json"
+            )
+            task = json.loads(task_path.read_text(encoding="utf-8"))
+            task["outputs"]["destination"] = (
+                "artifacts/clients/another-client/stolen/"
+            )
+            task_path.write_text(json.dumps(task), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                WorkspaceValidationError,
+                "output must remain under",
+            ):
+                WorkspaceRegistry(root).load("example-client")
+
+    def test_workspace_rejects_parent_directory_output_escape(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copytree(REPO_ROOT / "schemas", root / "schemas")
+            shutil.copytree(REPO_ROOT / "clients", root / "clients")
+            task_path = (
+                root
+                / "clients/example-client/tasks/public-research.json"
+            )
+            task = json.loads(task_path.read_text(encoding="utf-8"))
+            task["outputs"]["destination"] = (
+                "artifacts/clients/example-client/../another-client/"
+            )
+            task_path.write_text(json.dumps(task), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                WorkspaceValidationError,
+                "repository-relative path",
+            ):
+                WorkspaceRegistry(root).load("example-client")
+
 
 class RunOrchestratorTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -173,6 +268,68 @@ class RunOrchestratorTests(unittest.TestCase):
                 business_path="../../outside.json",
                 task_path="templates/competitor-research/task.json",
             )
+
+    def test_client_run_uses_manifest_paths_and_owner_approval(self) -> None:
+        record, created = self.orchestrator.create_client_run(
+            client_id="example-client",
+            task_id="example-client-public-research",
+            idempotency_key="client-example:12345",
+            source="api",
+        )
+        self.assertTrue(created)
+        self.assertEqual(record.client_id, "example-client")
+        self.assertEqual(
+            record.workspace_path,
+            "clients/example-client/workspace.json",
+        )
+        with self.assertRaisesRegex(ServiceRequestError, "workspace owner"):
+            self.orchestrator.approve_run(
+                run_id=record.run_id,
+                approval_kind="blueprint",
+                decision="approved",
+                actor="another-user",
+                details={
+                    "objective_reviewed": True,
+                    "domains_reviewed": True,
+                },
+            )
+        approved = self.orchestrator.approve_run(
+            run_id=record.run_id,
+            approval_kind="blueprint",
+            decision="approved",
+            actor="owner",
+            details={
+                "objective_reviewed": True,
+                "domains_reviewed": True,
+            },
+        )
+        self.assertEqual(approved.status, "queued")
+
+    def test_client_integration_allowlist_blocks_global_notion_output(self) -> None:
+        settings = ServiceSettings(
+            repo_root=REPO_ROOT,
+            database_path=(
+                Path(self.temporary_directory.name) / "outputs.sqlite3"
+            ),
+            api_token="a" * 32,
+            notion_api_key="configured-key",
+            notion_database_id="configured-database",
+        )
+        store = RunStore(settings.database_path)
+        orchestrator = RunOrchestrator(settings, store)
+        record, _ = orchestrator.create_client_run(
+            client_id="example-client",
+            task_id="example-client-public-research",
+            idempotency_key="client-output:12345",
+            source="api",
+        )
+
+        with patch(
+            "universal_browser_agent.service.orchestrator.NotionRunPublisher"
+        ) as publisher:
+            asyncio.run(orchestrator._publish_outputs(record))
+
+        publisher.assert_not_called()
 
     def test_worker_records_runtime_result(self) -> None:
         record, _ = self.orchestrator.create_run(
@@ -316,6 +473,38 @@ class ServiceAPITests(unittest.TestCase):
         }
         self.assertIn("run.created", event_types)
         self.assertIn("approval.approved", event_types)
+
+    def test_list_client_create_run_and_filter_history(self) -> None:
+        clients = self.client.get("/v1/clients", headers=self.headers)
+        self.assertEqual(clients.status_code, 200, clients.text)
+        self.assertEqual(
+            clients.json()["clients"][0]["client_id"],
+            "example-client",
+        )
+
+        created = self.client.post(
+            "/v1/clients/example-client/runs",
+            headers={
+                **self.headers,
+                "Idempotency-Key": "client-api:123456",
+            },
+            json={
+                "task_id": "example-client-public-research",
+                "source": "api",
+            },
+        )
+        self.assertEqual(created.status_code, 202, created.text)
+        self.assertEqual(
+            created.json()["run"]["client_id"],
+            "example-client",
+        )
+
+        history = self.client.get(
+            "/v1/clients/example-client/runs",
+            headers=self.headers,
+        )
+        self.assertEqual(history.status_code, 200, history.text)
+        self.assertEqual(len(history.json()["runs"]), 1)
 
 
 class AdapterTests(unittest.TestCase):

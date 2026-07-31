@@ -1,4 +1,4 @@
-"""Environment-backed configuration for the v0.3 service."""
+"""Environment-backed configuration for the v0.4 service."""
 
 from __future__ import annotations
 

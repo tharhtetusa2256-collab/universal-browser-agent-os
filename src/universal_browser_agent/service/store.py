@@ -26,6 +26,8 @@ class RunRecord:
     status: str
     created_at: str
     updated_at: str
+    client_id: str | None = None
+    workspace_path: str | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
 
@@ -79,6 +81,8 @@ class RunStore:
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL,
+                    client_id TEXT,
+                    workspace_path TEXT,
                     result_json TEXT,
                     error TEXT
                 );
@@ -110,6 +114,22 @@ class RunStore:
                     ON events(run_id, event_id);
                 """
             )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(runs)").fetchall()
+            }
+            if "client_id" not in columns:
+                connection.execute("ALTER TABLE runs ADD COLUMN client_id TEXT")
+            if "workspace_path" not in columns:
+                connection.execute(
+                    "ALTER TABLE runs ADD COLUMN workspace_path TEXT"
+                )
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS runs_client_created_idx
+                    ON runs(client_id, created_at)
+                """
+            )
 
     @staticmethod
     def _row_to_run(row: sqlite3.Row) -> RunRecord:
@@ -123,6 +143,8 @@ class RunStore:
             status=row["status"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            client_id=row["client_id"],
+            workspace_path=row["workspace_path"],
             result=json.loads(result_json) if result_json else None,
             error=row["error"],
         )
@@ -134,6 +156,8 @@ class RunStore:
         source: str,
         business_path: str,
         task_path: str,
+        client_id: str | None = None,
+        workspace_path: str | None = None,
     ) -> tuple[RunRecord, bool]:
         now = utc_now()
         run_id = f"run_{uuid4().hex}"
@@ -144,11 +168,19 @@ class RunStore:
                 (idempotency_key,),
             ).fetchone()
             if existing is not None:
-                expected = (source, business_path, task_path)
+                expected = (
+                    source,
+                    business_path,
+                    task_path,
+                    client_id,
+                    workspace_path,
+                )
                 actual = (
                     existing["source"],
                     existing["business_path"],
                     existing["task_path"],
+                    existing["client_id"],
+                    existing["workspace_path"],
                 )
                 if actual != expected:
                     connection.rollback()
@@ -161,8 +193,8 @@ class RunStore:
                 """
                 INSERT INTO runs (
                     run_id, idempotency_key, source, business_path, task_path,
-                    status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    status, created_at, updated_at, client_id, workspace_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -173,17 +205,38 @@ class RunStore:
                     "awaiting-blueprint-approval",
                     now,
                     now,
+                    client_id,
+                    workspace_path,
                 ),
             )
             self._append_event(
                 connection,
                 run_id,
                 "run.created",
-                {"source": source},
+                {"source": source, "client_id": client_id},
                 now,
             )
             connection.commit()
         return self.get_run(run_id), True
+
+    def list_runs(
+        self,
+        *,
+        client_id: str | None = None,
+        limit: int = 100,
+    ) -> list[RunRecord]:
+        if not 1 <= limit <= 500:
+            raise ValueError("limit must be between 1 and 500")
+        query = "SELECT * FROM runs"
+        parameters: tuple[Any, ...] = ()
+        if client_id is not None:
+            query += " WHERE client_id = ?"
+            parameters = (client_id,)
+        query += " ORDER BY created_at DESC LIMIT ?"
+        parameters += (limit,)
+        with self._connection() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [self._row_to_run(row) for row in rows]
 
     def get_run(self, run_id: str) -> RunRecord:
         with self._connection() as connection:
