@@ -18,6 +18,9 @@
     "bypass-access-controls"
   ],
   "inputs": {
+    "start_urls": [
+      "https://example.com/"
+    ],
     "urls": [
       "https://example.com/"
     ],
@@ -34,7 +37,8 @@
     "require_source_urls": true,
     "require_timestamps": true,
     "required_fields": [
-      "title",
+      "name",
+      "summary",
       "source_url",
       "accessed_at"
     ]

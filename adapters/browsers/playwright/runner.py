@@ -30,7 +30,7 @@ REQUIRED_PROHIBITIONS = {
 READ_ONLY_MODES = {"research-only", "test"}
 
 
-@dataclass(slots=True)
+@dataclass
 class PageEvidence:
     requested_url: str
     final_url: str | None
@@ -42,7 +42,7 @@ class PageEvidence:
     error: str | None
 
 
-@dataclass(slots=True)
+@dataclass
 class RunReport:
     task_id: str
     status: str

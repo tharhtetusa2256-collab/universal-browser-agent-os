@@ -80,7 +80,7 @@ def resolve_public_addresses(hostname: str, port: int) -> tuple[str, ...]:
     return tuple(addresses)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class DomainPolicy:
     """Strict read-only navigation allowlist with basic SSRF defenses."""
 
