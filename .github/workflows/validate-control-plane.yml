@@ -74,6 +74,8 @@ jobs:
       - name: Validate example business and task
         run: |
           uba-workspaces validate --client example-client
+          uba-workspaces validate --client tech-power
+          uba-secrets list --client tech-power
           python scripts/validate_configs.py \
             --business configs/example-business/business-profile.json \
             --task templates/competitor-research/task.json
@@ -96,7 +98,7 @@ jobs:
 
       - name: Check JSON syntax
         run: |
-          find schemas configs templates tests -name '*.json' -print0 | xargs -0 -n1 python -m json.tool > /dev/null
+          find schemas configs clients templates tests -name '*.json' -print0 | xargs -0 -n1 python -m json.tool > /dev/null
 
       - name: Check master prompt safeguards and size
         run: |

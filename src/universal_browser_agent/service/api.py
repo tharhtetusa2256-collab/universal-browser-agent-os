@@ -43,7 +43,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     store = RunStore(resolved.database_path)
     orchestrator = RunOrchestrator(resolved, store)
     app = FastAPI(
-        title="Universal Browser Agent OS",
+        title="Tharhtet Browser Agent",
         version="0.4.0",
         description=(
             "Approval-gated API for validated public-page browser tasks. "

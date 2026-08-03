@@ -1,0 +1,13 @@
+{
+  "workspace_version": "1.0",
+  "client_id": "tech-power",
+  "display_name": "Tech Power",
+  "status": "active",
+  "owner_id": "tharhtetusa2256-collab",
+  "business_profile": "business-profile.json",
+  "artifact_root": "artifacts/clients/tech-power",
+  "tasks": [],
+  "notion_readonly_config": "notion-readonly.json",
+  "credential_references_config": "credential-references.json",
+  "allowed_integrations": ["local-files"]
+}

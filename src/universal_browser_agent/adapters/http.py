@@ -12,19 +12,27 @@ class AdapterHTTPError(RuntimeError):
     """Raised when an external adapter request fails safely."""
 
 
-def post_json(
+def request_json(
+    method: str,
     url: str,
-    payload: dict[str, Any],
     *,
     headers: dict[str, str],
+    payload: dict[str, Any] | None = None,
     timeout_seconds: int = 30,
 ) -> dict[str, Any]:
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    normalized_method = method.upper()
+    if normalized_method not in {"GET", "POST"}:
+        raise ValueError("JSON transport supports only GET and POST")
+    body = (
+        json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        if payload is not None
+        else None
+    )
     request = Request(
         url,
         data=body,
         headers={"Content-Type": "application/json", **headers},
-        method="POST",
+        method=normalized_method,
     )
     try:
         with urlopen(request, timeout=timeout_seconds) as response:
@@ -46,3 +54,21 @@ def post_json(
     if not isinstance(value, dict):
         raise AdapterHTTPError("External service JSON response must be an object")
     return value
+
+
+def post_json(
+    url: str,
+    payload: dict[str, Any],
+    *,
+    headers: dict[str, str],
+    timeout_seconds: int = 30,
+) -> dict[str, Any]:
+    """Compatibility wrapper for existing output adapters."""
+
+    return request_json(
+        "POST",
+        url,
+        payload=payload,
+        headers=headers,
+        timeout_seconds=timeout_seconds,
+    )

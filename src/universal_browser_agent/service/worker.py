@@ -42,7 +42,7 @@ async def worker_loop(settings: ServiceSettings, *, once: bool = False) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Run the Universal Browser Agent durable worker"
+        description="Run the Tharhtet Browser Agent durable worker"
     )
     parser.add_argument(
         "--once",

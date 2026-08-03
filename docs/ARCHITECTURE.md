@@ -2,7 +2,7 @@
 
 ## Product goal
 
-Universal Browser Agent OS is a private, operator-owned control plane for
+Tharhtet Browser Agent is a private, operator-owned control plane for
 turning client business outcomes into researched, reviewed, validated, and
 approval-gated browser workflows.
 
@@ -48,9 +48,11 @@ A business profile defines identity, industry, goals, policies, runtime preferen
 ### 3. Operator-owned client workspaces
 
 Each client lives under `clients/<client-id>/`. A validated manifest binds the
-business profile, exact owner identity, enabled tasks, artifact root, and
-allowed external outputs. The service accepts `client_id` plus `task_id` and
-resolves paths from that manifest, preventing callers from mixing client files.
+business profile, exact owner identity, enabled tasks, artifact root, allowed
+external outputs, and optional read-only connector configuration. The service
+accepts `client_id` plus `task_id` and resolves paths from that manifest,
+preventing callers from mixing client files. A connector-only pilot may have no
+browser tasks until its input contract is verified.
 
 This is configuration isolation for one trusted operator. It is not SaaS
 tenant isolation and does not provide client accounts, roles, billing, or
@@ -83,6 +85,33 @@ extracts configured fields, and writes evidence artifacts outside Git.
 
 Login and consequential actions remain out of scope until the read-only path is
 reliable.
+
+The Notion reader is a separate input adapter. It can retrieve schemas and query
+only client-allowlisted data-source IDs, requests only allowlisted properties,
+and filters unexpected properties from responses. It uses a dedicated
+environment token intended for a read-content-only Notion integration. It does
+not expose page, comment, database, or schema mutations.
+
+### Secret plane
+
+Client workspaces store credential metadata and `op://` references, not secret
+values. The client-scoped broker resolves an approved adapter's declared
+capabilities through 1Password only when launching that adapter. The adapter
+subprocess receives no other client's environment variables, while the broker
+records a redacted decision audit outside source control.
+
+```text
+client workspace policy
+  -> fixed adapter and capability allowlist
+  -> 1Password op run reference resolution
+  -> one client-scoped adapter subprocess
+  -> redacted local credential audit
+```
+
+The bootstrap service-account token remains outside the repository. Separate
+OS users or containers are still required for strong production process
+isolation because same-user processes can inspect environment state on common
+operating systems.
 
 ### 6. Durable service
 
@@ -136,6 +165,7 @@ Each client workspace has separate:
 - artifact and report location;
 - enabled tasks;
 - allowed output integrations;
+- allowed read-only connector sources and properties;
 - owner approval identity.
 
 Authenticated adapters additionally require separate secret scope, browser

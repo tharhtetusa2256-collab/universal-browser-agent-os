@@ -1,0 +1,29 @@
+{
+  "profile_version": "1.0",
+  "business": {
+    "id": "tech-power",
+    "name": "Tech Power",
+    "industry": "solar-and-power-solutions",
+    "country": "Myanmar",
+    "timezone": "Asia/Yangon",
+    "languages": ["my", "en"]
+  },
+  "goals": [
+    "Use approved Notion knowledge to reduce manual content research and workflow review time",
+    "Produce evidence-backed Burmese briefs without publishing or changing client systems"
+  ],
+  "policies": {
+    "require_blueprint_confirmation": true,
+    "require_test_mode": true,
+    "allow_login": false,
+    "allow_sending": false,
+    "allow_publishing": false,
+    "allow_purchasing": false,
+    "allow_deletion": false,
+    "data_classification": "internal"
+  },
+  "integrations": {
+    "browser_runtime": "playwright",
+    "outputs": ["local-files"]
+  }
+}

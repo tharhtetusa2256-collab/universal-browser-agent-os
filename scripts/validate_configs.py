@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compatibility entry point for Universal Browser Agent OS validation."""
+"""Compatibility entry point for Tharhtet Browser Agent validation."""
 
 from universal_browser_agent.validation import main
 

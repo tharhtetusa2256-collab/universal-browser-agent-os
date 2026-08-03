@@ -64,6 +64,25 @@ unexpected or personal information.
 - Workspace isolation assumes one trusted repository operator. It is not a
   substitute for tenant authentication or authorization in a client-facing SaaS.
 
+## Client credential boundary
+
+- Git and Notion store schema-validated credential references and metadata only,
+  never secret values or the 1Password service-account token.
+- Each client and environment must use a separate vault and service identity;
+  read and write capabilities must not share an identity.
+- `uba-secrets` may launch only a schema-allowlisted adapter executable. It does
+  not invoke a shell and callers cannot override the bound client or repository.
+- The broker passes only the adapter's declared references through `op run` and
+  leaves 1Password output masking enabled.
+- Credential audit logs record client, service identity, adapter, capabilities,
+  decision, status, and exit code. They omit references, values, and arguments.
+- `OP_SERVICE_ACCOUNT_TOKEN` is a host bootstrap credential. Provide it through
+  the host credential store or process supervisor, scope it to one client vault,
+  and rotate it; do not put it in `.env`, Git, Notion, or logs.
+- Environment injection does not isolate processes running as the same operating
+  system user. Production clients need separate OS users or containers, data
+  volumes, databases, artifact roots, and browser profiles.
+
 ## Reporting vulnerabilities
 
 Open a private security advisory when available. Do not include exploitable credentials or customer data in a public issue.
