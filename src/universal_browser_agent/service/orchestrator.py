@@ -8,8 +8,12 @@ from pathlib import Path
 from typing import Any
 
 from ..adapters.notion import NotionRunPublisher
-from ..adapters.openrouter import OpenRouterPlanner
+from ..adapters.openrouter import (
+    OpenRouterPlanner,
+    OpenRouterWorkflowIntentPlanner,
+)
 from ..adapters.webhook import SignedWebhookPublisher
+from ..agent import BrowserWorkflowPlanner
 from ..models import RuntimeTask
 from ..playwright_runtime import ReadOnlyPlaywrightRuntime
 from ..policy import DomainPolicy
@@ -200,15 +204,12 @@ class RunOrchestrator:
             details=details,
         )
 
-    async def propose_extraction(
+    async def _validate_plan_scope(
         self,
         *,
-        objective: str,
         approved_domains: list[str],
         start_urls: list[str],
-    ) -> dict[str, Any]:
-        if not self.settings.openrouter_api_key:
-            raise ServiceRequestError("OpenRouter is not configured")
+    ) -> None:
         if (
             not approved_domains
             or len(approved_domains) != len(set(approved_domains))
@@ -222,6 +223,20 @@ class RunOrchestrator:
         policy = DomainPolicy(tuple(approved_domains))
         for url in start_urls:
             await policy.validate_url(url)
+
+    async def propose_extraction(
+        self,
+        *,
+        objective: str,
+        approved_domains: list[str],
+        start_urls: list[str],
+    ) -> dict[str, Any]:
+        if not self.settings.openrouter_api_key:
+            raise ServiceRequestError("OpenRouter is not configured")
+        await self._validate_plan_scope(
+            approved_domains=approved_domains,
+            start_urls=start_urls,
+        )
         planner = OpenRouterPlanner(
             self.settings.openrouter_api_key,
             self.settings.openrouter_model,
@@ -232,6 +247,42 @@ class RunOrchestrator:
             approved_domains=approved_domains,
             start_urls=start_urls,
         )
+
+    async def propose_ai_workflow(
+        self,
+        *,
+        objective: str,
+        approved_domains: list[str],
+        start_urls: list[str],
+    ) -> dict[str, Any]:
+        """Use AI for intent drafting, then enforce deterministic LangGraph policy."""
+        if not self.settings.openrouter_api_key:
+            raise ServiceRequestError("OpenRouter is not configured")
+        await self._validate_plan_scope(
+            approved_domains=approved_domains,
+            start_urls=start_urls,
+        )
+        intent_planner = OpenRouterWorkflowIntentPlanner(
+            self.settings.openrouter_api_key,
+            self.settings.openrouter_model,
+        )
+        intent = await asyncio.to_thread(
+            intent_planner.propose_intent,
+            objective=objective,
+            approved_domains=approved_domains,
+            start_urls=start_urls,
+        )
+        policy_plan = BrowserWorkflowPlanner().plan(
+            objective=objective,
+            approved_domains=approved_domains,
+            start_urls=start_urls,
+            requested_capabilities=intent["requested_capabilities"],
+        )
+        return {
+            "model_intent": intent,
+            "policy_plan": policy_plan,
+            "execution_authorized": False,
+        }
 
     async def execute_next(self) -> RunRecord | None:
         record = self.store.claim_next_run()
