@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 import unittest
@@ -15,6 +16,8 @@ from universal_browser_agent.adapters.openrouter import (
 from universal_browser_agent.agent import BrowserWorkflowPlanner
 from universal_browser_agent.service.api import create_app
 from universal_browser_agent.service.config import ServiceSettings
+from universal_browser_agent.service.orchestrator import RunOrchestrator
+from universal_browser_agent.service.store import RunStore
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -141,6 +144,52 @@ class OpenRouterWorkflowIntentPlannerTests(unittest.TestCase):
         self.assertTrue(policy_plan["requires_human_approval"])
         self.assertEqual(policy_plan["status"], "approval-required")
         self.assertFalse(policy_plan["execution_authorized"])
+
+
+class AIWorkflowOrchestratorTests(unittest.TestCase):
+    def test_ai_intent_is_reclassified_by_deterministic_policy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            settings = ServiceSettings(
+                repo_root=REPO_ROOT,
+                database_path=Path(directory) / "orchestrator.sqlite3",
+                api_token="a" * 32,
+                openrouter_api_key="test-key",
+                openrouter_model="test/model",
+            )
+            orchestrator = RunOrchestrator(
+                settings,
+                RunStore(settings.database_path),
+            )
+            fake_intent_planner = unittest.mock.Mock()
+            fake_intent_planner.propose_intent.return_value = {
+                "task_summary": "Prepare a publishing workflow",
+                "requested_capabilities": ["navigate", "fill", "publish"],
+                "notes": "Model draft only.",
+            }
+
+            with patch.object(
+                RunOrchestrator,
+                "_validate_plan_scope",
+                new=AsyncMock(return_value=None),
+            ), patch(
+                "universal_browser_agent.service.orchestrator."
+                "OpenRouterWorkflowIntentPlanner",
+                return_value=fake_intent_planner,
+            ):
+                proposal = asyncio.run(
+                    orchestrator.propose_ai_workflow(
+                        objective=(
+                            "Prepare a workflow to publish approved content to the website"
+                        ),
+                        approved_domains=["example.com"],
+                        start_urls=["https://example.com/"],
+                    )
+                )
+
+        self.assertEqual(proposal["policy_plan"]["risk_level"], "high")
+        self.assertEqual(proposal["policy_plan"]["status"], "approval-required")
+        self.assertFalse(proposal["execution_authorized"])
+        self.assertFalse(proposal["policy_plan"]["execution_authorized"])
 
 
 class AIWorkflowPreviewAPITests(unittest.TestCase):
