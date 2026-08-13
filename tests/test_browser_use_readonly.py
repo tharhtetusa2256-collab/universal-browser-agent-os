@@ -15,21 +15,19 @@ from universal_browser_agent.adapters.browser_use_readonly import (
 from universal_browser_agent.models import RuntimeTask
 
 
-class _FakeRegistry:
+class _FakeActionRegistry:
     def __init__(self, actions: set[str]) -> None:
-        self.actions = actions
+        self.actions = {name: object() for name in actions}
 
-    def create_action_model(self):
-        return type(
-            "FakeActionModel",
-            (),
-            {"model_fields": {name: object() for name in self.actions}},
-        )
+
+class _FakeRegistryService:
+    def __init__(self, actions: set[str]) -> None:
+        self.registry = _FakeActionRegistry(actions)
 
 
 class _FakeTools:
     def __init__(self, actions: set[str]) -> None:
-        self.registry = _FakeRegistry(actions)
+        self.registry = _FakeRegistryService(actions)
 
 
 def _task() -> RuntimeTask:
@@ -51,7 +49,7 @@ def _task() -> RuntimeTask:
 
 
 class BrowserUseReadOnlyContractTests(unittest.TestCase):
-    def test_installed_action_names_reads_pydantic_fields(self) -> None:
+    def test_installed_action_names_reads_registry_mapping(self) -> None:
         names = installed_action_names(
             _FakeTools({"navigate", "extract", "done"})
         )
