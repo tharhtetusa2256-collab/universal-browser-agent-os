@@ -109,15 +109,16 @@ class BrowserUseRunSummary:
 
 
 def installed_action_names(tools: Any) -> frozenset[str]:
-    """Return Browser Use action names without depending on registry internals."""
+    """Return concrete registered action names from Browser Use's registry."""
 
-    action_model = tools.registry.create_action_model()
-    model_fields = getattr(action_model, "model_fields", None)
-    if not isinstance(model_fields, dict):
+    registry_service = getattr(tools, "registry", None)
+    action_registry = getattr(registry_service, "registry", None)
+    actions = getattr(action_registry, "actions", None)
+    if not isinstance(actions, dict):
         raise BrowserUseCapabilityError(
-            "Browser Use action model no longer exposes Pydantic model_fields"
+            "Browser Use registry no longer exposes an actions mapping"
         )
-    return frozenset(str(name) for name in model_fields)
+    return frozenset(str(name) for name in actions)
 
 
 def enforce_read_only_tool_contract(action_names: set[str] | frozenset[str]) -> None:
