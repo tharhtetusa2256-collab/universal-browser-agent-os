@@ -52,33 +52,38 @@ The adapter accepts only `research-only` and `test` task modes.
 
 ## Read-only action contract
 
-Only these Browser Use actions may be exposed:
+For Browser Use 0.13.7, only these actions may be exposed by this adapter:
 
 - `navigate`
 - `go_back`
 - `wait`
 - `scroll`
-- `find_text`
+- `search_page`
+- `find_elements`
 - `extract`
 - `screenshot`
 - `switch`
 - `dropdown_options`
 - `done`
 
+`search_page` and `find_elements` are accepted only as Browser Use's fixed
+read-only DOM inspection tools. Arbitrary JavaScript execution remains excluded.
+
 The following current upstream defaults are explicitly excluded:
 
-- search
+- search-engine search
 - click/input/send-keys
 - file upload
-- JavaScript evaluation
+- arbitrary JavaScript evaluation
 - dropdown selection
+- PDF/file creation, including `save_as_pdf`
 - local file read/write/replace
 - tab close
 
 The exclusion list is not the primary safety boundary. After Browser Use builds
-its tool registry, the adapter reads the generated action model and compares it
-to the allowlist. Any new or unexpected upstream action causes startup to fail
-closed.
+its tool registry, the adapter reads the registry's concrete `actions` mapping
+and compares every registered action name to the allowlist. Any new or
+unexpected upstream action causes startup to fail closed.
 
 After a run, the adapter also checks every recorded action name against the same
 allowlist. A prohibited action in history makes the run fail instead of being
@@ -153,6 +158,7 @@ extra and verifies, without launching a browser or calling a model API, that:
 - the current upstream tool registry contains no unexpected action after the
   exclusion list is applied;
 - required read-only actions still exist;
+- the expected Browser Use OpenRouter provider module remains importable;
 - `BrowserProfile` still supports the approved-domain and IP-blocking settings.
 
 Normal repository CI still runs without Browser Use installed. This keeps the
