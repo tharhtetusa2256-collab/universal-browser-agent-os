@@ -23,7 +23,7 @@ core remains unchanged. This is not a client-facing SaaS.
 
 ## Current release
 
-**v0.5.2 — LangGraph planning, constrained AI intent, and planner evaluation gates**
+**v0.6.0 — Optional Browser Use public read-only adapter**
 
 Included:
 
@@ -37,6 +37,12 @@ Included:
 - `uba-eval` CLI with deterministic fixture replay and explicit live OpenRouter evaluation modes;
 - zero-cost GitHub Actions planner-evaluation gate with JSON report artifacts;
 - exact capability-match, safety-gate, and authorization-invariant metrics;
+- optional `browser-use[core]` runtime extra pinned to the 0.13 minor line;
+- `uba-browser-use` CLI for manual, low-risk, public research pilots;
+- Browser Use read-only tool allowlist with fail-closed upstream-action checks;
+- approved-domain, public-DNS, and visited-URL validation around agentic navigation;
+- Browser Use evidence reports without storing raw model thoughts / chain-of-thought;
+- dedicated Browser Use dependency/tool compatibility CI without LLM API calls;
 - repository-native `clients/<client-id>/` workspaces;
 - client workspace schema and registry validation;
 - client-scoped API run creation and history;
@@ -66,7 +72,7 @@ Included:
 - architecture and getting-started documentation;
 - validated task loading for the Playwright adapter;
 - exact approved-domain and public-network enforcement;
-- GET/HEAD-only browser request policy with WebSockets blocked;
+- GET/HEAD-only browser request policy with WebSockets blocked in the Playwright runtime;
 - structured extraction with custom CSS selectors;
 - retry, timeout, item-limit, missing-data, and duplicate controls;
 - JSON, CSV, Markdown, screenshot, and Playwright trace evidence.
@@ -77,9 +83,10 @@ Not included yet:
 - login, CAPTCHA, passkeys, or 2FA handling;
 - clicking controls, filling forms, or submitting data;
 - sending, publishing, purchasing, deleting, or account changes;
+- automatic routing of approved runs into Browser Use;
 - hosted dashboard or SaaS billing.
 
-This boundary is intentional. AI planning is non-executing and the runtime remains deliberately limited to public, read-only research until authenticated and state-changing paths have separate isolation, approval, and evidence controls.
+This boundary is intentional. AI planning is non-executing and the runtime remains deliberately limited to public, read-only research until authenticated and state-changing paths have separate isolation, approval, and evidence controls. Browser Use is manual and opt-in in v0.6; default approved-run execution remains the stricter Playwright runtime.
 
 ## Repository structure
 
@@ -106,6 +113,7 @@ universal-browser-agent-os/
 │   └── universal_browser_agent/
 │       ├── agent/
 │       ├── adapters/
+│       ├── browser_use_cli.py
 │       ├── evals.py
 │       └── service/
 ├── prompts/
@@ -127,6 +135,7 @@ universal-browser-agent-os/
 │   ├── V0_5_LANGGRAPH_PLANNING.md
 │   ├── V0_5_1_AI_PLANNER.md
 │   ├── V0_5_2_PLANNER_EVALS.md
+│   ├── V0_6_BROWSER_USE_READONLY.md
 │   ├── HOSTINGER_DEPLOYMENT.md
 │   ├── adr/
 │   └── GETTING_STARTED.md
@@ -190,6 +199,32 @@ uba-eval \
 
 The normal GitHub Actions planner-evaluation gate uses fixture mode only, so pull
 requests do not spend AI API budget.
+
+## Browser Use v0.6 quick start
+
+Install the optional runtime only on machines that will run the pilot:
+
+```bash
+python -m pip install ".[browser-use]"
+```
+
+Provide the OpenRouter key through the environment, then run a validated public
+research task manually:
+
+```bash
+export OPENROUTER_API_KEY='...'
+export UBA_BROWSER_USE_MODEL='openai/gpt-4.1-mini'
+
+uba-browser-use \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json \
+  --max-steps 20
+```
+
+The Browser Use adapter exposes only read-only navigation/extraction tools and
+fails closed if the installed upstream tool registry contains an unexpected
+action. It is not used by the FastAPI worker automatically in v0.6. See
+[v0.6 Browser Use read-only adapter](docs/V0_6_BROWSER_USE_READONLY.md).
 
 ## Client workspace quick start
 
@@ -277,6 +312,7 @@ configuration.
 - [v0.5 LangGraph planning](docs/V0_5_LANGGRAPH_PLANNING.md)
 - [v0.5.1 AI planner](docs/V0_5_1_AI_PLANNER.md)
 - [v0.5.2 planner evaluations](docs/V0_5_2_PLANNER_EVALS.md)
+- [v0.6 Browser Use read-only adapter](docs/V0_6_BROWSER_USE_READONLY.md)
 - [Getting started](docs/GETTING_STARTED.md)
 - [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
 - [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
@@ -322,8 +358,18 @@ configuration.
 - [x] AI preview endpoint that cannot authorize execution;
 - [x] multilingual planner evaluation set and measurable safety metrics;
 - [x] zero-cost CI planner-evaluation gate and report artifact;
-- [ ] measured live-model routing accuracy across selected models;
-- [ ] optional browser-use public read-only adapter.
+- [ ] measured live-model routing accuracy across selected models.
+
+### v0.6 — Agentic public read-only browsing
+
+- [x] optional Browser Use dependency extra;
+- [x] manual `uba-browser-use` pilot CLI;
+- [x] fail-closed Browser Use action allowlist;
+- [x] domain/public-DNS/history validation and evidence reports;
+- [x] zero-LLM-cost Browser Use compatibility CI;
+- [ ] deterministic Playwright-vs-Browser-Use tool router;
+- [ ] measured Browser Use success rate, intervention rate, latency, and cost per run;
+- [ ] production routing approval after pilot evidence.
 
 ### v1.0 — Pilot-ready platform
 
