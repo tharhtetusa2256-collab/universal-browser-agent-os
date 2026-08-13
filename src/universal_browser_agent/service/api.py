@@ -32,6 +32,12 @@ class ApprovalRequest(BaseModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+class RunRoutingRequest(BaseModel):
+    actor: str = Field(min_length=1, max_length=160)
+    agentic_navigation: bool = False
+    require_request_level_get_head_only: bool = False
+
+
 class PlanRequest(BaseModel):
     objective: str = Field(min_length=12, max_length=1_000)
     approved_domains: list[str] = Field(min_length=1, max_length=50)
@@ -72,11 +78,11 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     runtime_router = BrowserRuntimeRouter()
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.6.1",
+        version="0.6.2",
         description=(
-            "Approval-gated API for validated browser-agent planning, deterministic "
-            "runtime routing, and public-page browser tasks. AI planning and routing "
-            "remain non-executing, and state-changing browser actions remain unsupported."
+            "Approval-gated API for validated browser-agent planning, durable "
+            "runtime routing, and public read-only execution. State-changing "
+            "browser actions remain unsupported."
         ),
     )
 
@@ -90,15 +96,12 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.6.1"}
+        return {"status": "ok", "version": "0.6.2"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
         try:
-            clients = [
-                workspace.to_dict()
-                for workspace in orchestrator.list_workspaces()
-            ]
+            clients = [workspace.to_dict() for workspace in orchestrator.list_workspaces()]
         except (ServiceRequestError, ValueError) as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         return {"clients": clients}
@@ -185,6 +188,39 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
             }
         except RunNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Run not found") from exc
+
+    @app.post(
+        "/v1/runs/{run_id}/routing",
+        dependencies=[Depends(require_token)],
+    )
+    def configure_run_routing(
+        run_id: str,
+        request: RunRoutingRequest,
+    ) -> dict[str, Any]:
+        try:
+            record = orchestrator.configure_run_routing(
+                run_id=run_id,
+                actor=request.actor,
+                agentic_navigation=request.agentic_navigation,
+                require_request_level_get_head_only=(
+                    request.require_request_level_get_head_only
+                ),
+            )
+            return {
+                "status": "routing-persisted",
+                "executable": False,
+                "run": record.to_dict(),
+                "notice": (
+                    "The routing decision is durable but is not executable until "
+                    "blueprint approval locks the selected route."
+                ),
+            }
+        except RunNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="Run not found") from exc
+        except RunStateError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except ServiceRequestError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post(
         "/v1/runs/{run_id}/approvals",
