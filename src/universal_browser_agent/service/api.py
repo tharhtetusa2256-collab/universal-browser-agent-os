@@ -8,7 +8,7 @@ from typing import Any, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
-from ..agent import BrowserWorkflowPlanner
+from ..agent import BrowserRuntimeRouter, BrowserWorkflowPlanner, RoutingContext
 from .config import ServiceSettings
 from .orchestrator import RunOrchestrator, ServiceRequestError
 from .store import RunNotFoundError, RunStateError, RunStore
@@ -46,19 +46,37 @@ class BrowserWorkflowPlanRequest(PlanRequest):
     )
 
 
+class BrowserRuntimeRouteRequest(BaseModel):
+    mode: str = Field(default="research-only", min_length=2, max_length=40)
+    requested_capabilities: list[str] = Field(
+        default_factory=lambda: ["navigate", "extract"],
+        min_length=1,
+        max_length=25,
+    )
+    selectors_present: bool = False
+    output_formats: list[str] = Field(
+        default_factory=lambda: ["json", "markdown", "screenshots"],
+        min_length=1,
+        max_length=10,
+    )
+    agentic_navigation: bool = False
+    require_request_level_get_head_only: bool = False
+
+
 def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     resolved = settings or ServiceSettings.from_env()
     resolved.require_api_token()
     store = RunStore(resolved.database_path)
     orchestrator = RunOrchestrator(resolved, store)
     workflow_planner = BrowserWorkflowPlanner()
+    runtime_router = BrowserRuntimeRouter()
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.6.0",
+        version="0.6.1",
         description=(
-            "Approval-gated API for validated browser-agent planning and "
-            "public-page browser tasks. AI planning remains non-executing and "
-            "state-changing browser actions remain unsupported."
+            "Approval-gated API for validated browser-agent planning, deterministic "
+            "runtime routing, and public-page browser tasks. AI planning and routing "
+            "remain non-executing, and state-changing browser actions remain unsupported."
         ),
     )
 
@@ -72,7 +90,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.6.0"}
+        return {"status": "ok", "version": "0.6.1"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
@@ -186,6 +204,35 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         except (RunStateError, ServiceRequestError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post(
+        "/v1/routes/browser-runtime",
+        dependencies=[Depends(require_token)],
+    )
+    def route_browser_runtime(
+        request: BrowserRuntimeRouteRequest,
+    ) -> dict[str, Any]:
+        decision = runtime_router.decide(
+            RoutingContext(
+                mode=request.mode,
+                requested_capabilities=tuple(request.requested_capabilities),
+                selectors_present=request.selectors_present,
+                output_formats=tuple(request.output_formats),
+                agentic_navigation=request.agentic_navigation,
+                require_request_level_get_head_only=(
+                    request.require_request_level_get_head_only
+                ),
+            )
+        )
+        return {
+            "status": "blocked" if decision.route == "blocked" else "routed",
+            "executable": False,
+            "decision": decision.to_dict(),
+            "notice": (
+                "Routing is deterministic and non-executing. The decision cannot "
+                "grant blueprint approval or action approval and does not start a browser."
+            ),
+        }
 
     @app.post(
         "/v1/plans/browser-workflow",
