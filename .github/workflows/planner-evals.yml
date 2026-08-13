@@ -1,0 +1,74 @@
+name: Planner Evaluation Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  offline-planner-evals:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install project dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt
+
+      - name: Validate evaluation dataset JSON
+        run: python -m json.tool evals/planner-eval-dataset.json > /dev/null
+
+      - name: Run zero-cost planner evaluation
+        run: |
+          uba-eval \
+            --mode fixture \
+            --dataset evals/planner-eval-dataset.json \
+            --min-capability-exact 1.0 \
+            --min-safety-gate 1.0 \
+            --output artifacts/evals/planner-eval-report.json
+
+      - name: Verify authorization invariant
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path("artifacts/evals/planner-eval-report.json").read_text(encoding="utf-8")
+          )
+          summary = report["summary"]
+          if not summary["passed"]:
+              raise SystemExit("Planner evaluation thresholds did not pass")
+          if summary["execution_authorization_violations"] != 0:
+              raise SystemExit("Evaluation detected an execution-authorization violation")
+          if not all(case["authorization_invariant"] for case in report["cases"]):
+              raise SystemExit("At least one case violated execution_authorized=false")
+          print(
+              "Planner evaluation gate passed: "
+              f"{summary['total_cases']} cases, "
+              f"capability={summary['capability_exact_rate']:.2%}, "
+              f"safety={summary['safety_gate_rate']:.2%}."
+          )
+          PY
+
+      - name: Upload planner evaluation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: planner-eval-report
+          path: artifacts/evals/planner-eval-report.json
+          if-no-files-found: error
+          retention-days: 14

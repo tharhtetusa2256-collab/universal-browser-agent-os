@@ -23,7 +23,7 @@ core remains unchanged. This is not a client-facing SaaS.
 
 ## Current release
 
-**v0.5.1 — LangGraph planning and constrained AI intent preview**
+**v0.5.2 — LangGraph planning, constrained AI intent, and planner evaluation gates**
 
 Included:
 
@@ -33,6 +33,10 @@ Included:
 - operator-controlled approved domains and start URLs that AI cannot expand;
 - fail-closed consequential and unknown capability handling;
 - `execution_authorized = false` invariant for planning responses;
+- multilingual committed planner-evaluation dataset covering read-only, consequential, and unknown capabilities;
+- `uba-eval` CLI with deterministic fixture replay and explicit live OpenRouter evaluation modes;
+- zero-cost GitHub Actions planner-evaluation gate with JSON report artifacts;
+- exact capability-match, safety-gate, and authorization-invariant metrics;
 - repository-native `clients/<client-id>/` workspaces;
 - client workspace schema and registry validation;
 - client-scoped API run creation and history;
@@ -96,10 +100,13 @@ universal-browser-agent-os/
 │       ├── business-profile.json
 │       ├── notion-readonly.json
 │       └── credential-references.json
+├── evals/
+│   └── planner-eval-dataset.json
 ├── src/
 │   └── universal_browser_agent/
 │       ├── agent/
 │       ├── adapters/
+│       ├── evals.py
 │       └── service/
 ├── prompts/
 │   └── system/
@@ -119,6 +126,7 @@ universal-browser-agent-os/
 │   ├── ARCHITECTURE.md
 │   ├── V0_5_LANGGRAPH_PLANNING.md
 │   ├── V0_5_1_AI_PLANNER.md
+│   ├── V0_5_2_PLANNER_EVALS.md
 │   ├── HOSTINGER_DEPLOYMENT.md
 │   ├── adr/
 │   └── GETTING_STARTED.md
@@ -156,6 +164,32 @@ uba-run \
 For one-off compatibility runs, use the profile and task paths above. For normal
 multi-client operation, create a client workspace instead of passing arbitrary
 configuration paths.
+
+## Planner evaluation quick start
+
+Run the committed zero-cost replay suite:
+
+```bash
+uba-eval \
+  --mode fixture \
+  --dataset evals/planner-eval-dataset.json \
+  --min-capability-exact 1.0 \
+  --min-safety-gate 1.0 \
+  --output artifacts/evals/planner-eval-report.json
+```
+
+Run a cost-bearing live model evaluation only when explicitly desired:
+
+```bash
+export OPENROUTER_API_KEY='...'
+uba-eval \
+  --mode live \
+  --dataset evals/planner-eval-dataset.json \
+  --output artifacts/evals/live-planner-eval-report.json
+```
+
+The normal GitHub Actions planner-evaluation gate uses fixture mode only, so pull
+requests do not spend AI API budget.
 
 ## Client workspace quick start
 
@@ -242,6 +276,7 @@ configuration.
 - [Architecture](docs/ARCHITECTURE.md)
 - [v0.5 LangGraph planning](docs/V0_5_LANGGRAPH_PLANNING.md)
 - [v0.5.1 AI planner](docs/V0_5_1_AI_PLANNER.md)
+- [v0.5.2 planner evaluations](docs/V0_5_2_PLANNER_EVALS.md)
 - [Getting started](docs/GETTING_STARTED.md)
 - [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
 - [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
@@ -285,7 +320,9 @@ configuration.
 - [x] non-executing authenticated planning endpoint;
 - [x] constrained OpenRouter intent classification composed with deterministic policy;
 - [x] AI preview endpoint that cannot authorize execution;
-- [ ] measured planner evaluation set and routing metrics;
+- [x] multilingual planner evaluation set and measurable safety metrics;
+- [x] zero-cost CI planner-evaluation gate and report artifact;
+- [ ] measured live-model routing accuracy across selected models;
 - [ ] optional browser-use public read-only adapter.
 
 ### v1.0 — Pilot-ready platform

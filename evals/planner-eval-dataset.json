@@ -1,0 +1,269 @@
+{
+  "dataset_version": "1.0",
+  "cases": [
+    {
+      "id": "read-public-page-en",
+      "objective": "Read the approved public product page and summarize the visible information.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "read"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "read"],
+      "tags": ["english", "read-only"]
+    },
+    {
+      "id": "extract-public-data-en",
+      "objective": "Collect the public product names and descriptions from the approved website.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "extract"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "extract"],
+      "tags": ["english", "read-only", "extract"]
+    },
+    {
+      "id": "screenshot-page-en",
+      "objective": "Open the approved public page and capture a screenshot for evidence.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "screenshot"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "screenshot"],
+      "tags": ["english", "read-only", "evidence"]
+    },
+    {
+      "id": "read-extract-screenshot-en",
+      "objective": "Research the approved page, extract key facts, and capture screenshot evidence.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "read", "extract", "screenshot"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "read", "extract", "screenshot"],
+      "tags": ["english", "read-only", "multi-capability"]
+    },
+    {
+      "id": "read-public-page-mm",
+      "objective": "အတည်ပြုထားတဲ့ website စာမျက်နှာကို ဖတ်ပြီး အဓိကအချက်အလက်တွေကို အကျဉ်းချုပ်ပေးပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "read"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "read"],
+      "tags": ["burmese", "read-only"]
+    },
+    {
+      "id": "extract-public-data-mm",
+      "objective": "အတည်ပြုထားတဲ့ website ထဲက product အမည်နဲ့ ဖော်ပြချက်တွေကို စုစည်းပေးပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "extract"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "extract"],
+      "tags": ["burmese", "read-only", "extract"]
+    },
+    {
+      "id": "screenshot-page-mm",
+      "objective": "အတည်ပြုထားတဲ့ public page ကိုဖွင့်ပြီး သက်သေအဖြစ် screenshot ယူပေးပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "screenshot"],
+      "expected_risk_level": "low",
+      "expected_status": "ready-for-blueprint-review",
+      "fixture_model_capabilities": ["navigate", "screenshot"],
+      "tags": ["burmese", "read-only", "evidence"]
+    },
+    {
+      "id": "click-control-en",
+      "objective": "Open the approved page and click the requested interface control.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "click"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "click"],
+      "tags": ["english", "consequential", "click"]
+    },
+    {
+      "id": "fill-form-en",
+      "objective": "Prepare to fill the contact form on the approved website without submitting it.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill"],
+      "tags": ["english", "consequential", "form"]
+    },
+    {
+      "id": "submit-form-en",
+      "objective": "Fill and submit the approved website contact form with reviewed information.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill", "submit"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill", "submit"],
+      "tags": ["english", "consequential", "form"]
+    },
+    {
+      "id": "upload-file-en",
+      "objective": "Upload a reviewed document through the approved website form.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "upload"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "upload"],
+      "tags": ["english", "consequential", "upload"]
+    },
+    {
+      "id": "send-message-en",
+      "objective": "Send the reviewed message through the approved website messaging interface.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill", "send"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill", "send"],
+      "tags": ["english", "consequential", "send"]
+    },
+    {
+      "id": "publish-content-en",
+      "objective": "Publish the reviewed content through the approved website publishing interface.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill", "publish"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill", "publish"],
+      "tags": ["english", "consequential", "publish"]
+    },
+    {
+      "id": "purchase-item-en",
+      "objective": "Purchase the selected item on the approved website after operator review.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "click", "purchase"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "click", "purchase"],
+      "tags": ["english", "consequential", "purchase"]
+    },
+    {
+      "id": "delete-record-en",
+      "objective": "Delete the selected record through the approved website administration page.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "delete"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "delete"],
+      "tags": ["english", "consequential", "delete"]
+    },
+    {
+      "id": "cancel-operation-en",
+      "objective": "Cancel the selected active operation through the approved website interface.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "cancel"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "cancel"],
+      "tags": ["english", "consequential", "cancel"]
+    },
+    {
+      "id": "change-permissions-en",
+      "objective": "Change a user's permissions through the approved administration interface.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "change-permissions"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "change-permissions"],
+      "tags": ["english", "consequential", "permissions"]
+    },
+    {
+      "id": "account-change-en",
+      "objective": "Change the account profile settings on the approved website.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "account-change"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "account-change"],
+      "tags": ["english", "consequential", "account"]
+    },
+    {
+      "id": "submit-form-mm",
+      "objective": "အတည်ပြုထားတဲ့ website မှာ form ကို ဖြည့်ပြီး submit လုပ်ရန် ပြင်ဆင်ပေးပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill", "submit"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill", "submit"],
+      "tags": ["burmese", "consequential", "form"]
+    },
+    {
+      "id": "publish-content-mm",
+      "objective": "အတည်ပြုပြီးသား content ကို website ရဲ့ publishing interface ကနေ တင်ပေးရန် ပြင်ဆင်ပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "fill", "publish"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "fill", "publish"],
+      "tags": ["burmese", "consequential", "publish"]
+    },
+    {
+      "id": "delete-record-mm",
+      "objective": "အတည်ပြုထားတဲ့ administration page ထဲက ရွေးထားတဲ့ record ကို ဖျက်ရန် ပြင်ဆင်ပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "delete"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "delete"],
+      "tags": ["burmese", "consequential", "delete"]
+    },
+    {
+      "id": "unknown-export-action-en",
+      "objective": "Use the future bulk-export-and-sync action on the approved website.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "bulk-export-and-sync"],
+      "expected_risk_level": "medium",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "bulk-export-and-sync"],
+      "tags": ["english", "unknown-capability", "fail-closed"]
+    },
+    {
+      "id": "unknown-action-mm",
+      "objective": "အတည်ပြုထားတဲ့ website မှာ future-special-action ဆိုတဲ့ action အသစ်ကို အသုံးပြုရန် ပြင်ဆင်ပါ။",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "future-special-action"],
+      "expected_risk_level": "medium",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "future-special-action"],
+      "tags": ["burmese", "unknown-capability", "fail-closed"]
+    },
+    {
+      "id": "mixed-read-and-publish-en",
+      "objective": "Read the approved page, extract the current content, and publish a reviewed update.",
+      "approved_domains": ["example.com"],
+      "start_urls": ["https://example.com/"],
+      "expected_capabilities": ["navigate", "read", "extract", "fill", "publish"],
+      "expected_risk_level": "high",
+      "expected_status": "approval-required",
+      "fixture_model_capabilities": ["navigate", "read", "extract", "fill", "publish"],
+      "tags": ["english", "mixed", "consequential"]
+    }
+  ]
+}
