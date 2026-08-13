@@ -137,25 +137,47 @@ def enforce_read_only_tool_contract(action_names: set[str] | frozenset[str]) -> 
         )
 
 
-def _load_browser_use() -> tuple[Any, Any, Any, Any]:
+def _load_browser_use_core() -> tuple[Any, Any, Any]:
+    """Load Browser Use runtime primitives without importing a model provider."""
+
     try:
-        from browser_use import Agent, BrowserProfile, ChatOpenRouter, Tools
+        from browser_use import Agent, BrowserProfile, Tools
     except ImportError as exc:  # pragma: no cover - exercised by optional CI job
         raise BrowserUseDependencyError(
             "Browser Use is optional. Install the project with the browser-use "
             "extra before using this adapter."
         ) from exc
-    return Agent, BrowserProfile, ChatOpenRouter, Tools
+    return Agent, BrowserProfile, Tools
+
+
+def _load_openrouter_model() -> Any:
+    """Load the provider from its stable v0.13 module path, not package root."""
+
+    try:
+        from browser_use.llm.openrouter.chat import ChatOpenRouter
+    except ImportError as exc:  # pragma: no cover - exercised by optional CI job
+        raise BrowserUseDependencyError(
+            "Installed Browser Use does not provide the expected OpenRouter model "
+            "adapter at browser_use.llm.openrouter.chat.ChatOpenRouter."
+        ) from exc
+    return ChatOpenRouter
 
 
 def verify_installed_browser_use_contract() -> tuple[str, ...]:
     """Compatibility probe used by CI without launching a browser or calling an LLM."""
 
-    _, _, _, Tools = _load_browser_use()
+    _, _, Tools = _load_browser_use_core()
     tools = Tools(exclude_actions=list(EXCLUDED_DEFAULT_ACTIONS))
     names = installed_action_names(tools)
     enforce_read_only_tool_contract(names)
     return tuple(sorted(names))
+
+
+def verify_installed_openrouter_contract() -> str:
+    """Verify the model provider can be imported without making a network call."""
+
+    model_cls = _load_openrouter_model()
+    return f"{model_cls.__module__}.{model_cls.__name__}"
 
 
 class BrowserUseReadOnlyAdapter:
@@ -194,7 +216,8 @@ class BrowserUseReadOnlyAdapter:
         self.run_id = self._new_run_id()
 
     async def run(self) -> BrowserUseRunSummary:
-        if not os.environ.get("OPENROUTER_API_KEY"):
+        api_key = os.environ.get("OPENROUTER_API_KEY")
+        if not api_key:
             raise BrowserUseAdapterError(
                 "OPENROUTER_API_KEY is required for the v0.6 Browser Use pilot"
             )
@@ -202,7 +225,8 @@ class BrowserUseReadOnlyAdapter:
         for url in self.task.start_urls:
             await self.policy.validate_url(url)
 
-        Agent, BrowserProfile, ChatOpenRouter, Tools = _load_browser_use()
+        Agent, BrowserProfile, Tools = _load_browser_use_core()
+        ChatOpenRouter = _load_openrouter_model()
         tools = Tools(exclude_actions=list(EXCLUDED_DEFAULT_ACTIONS))
         allowed = installed_action_names(tools)
         enforce_read_only_tool_contract(allowed)
@@ -217,7 +241,7 @@ class BrowserUseReadOnlyAdapter:
             visited_urls.append(str(url))
 
         task_prompt = self._build_task_prompt()
-        llm = ChatOpenRouter(model=self.model)
+        llm = ChatOpenRouter(model=self.model, api_key=api_key)
         browser_profile = BrowserProfile(
             headless=self.headless,
             keep_alive=False,
