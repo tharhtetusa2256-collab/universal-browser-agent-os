@@ -1,4 +1,4 @@
-"""SQLite persistence for runs, approvals, and the audit event stream."""
+"""SQLite persistence for runs, approvals, routing, and the audit event stream."""
 
 from __future__ import annotations
 
@@ -16,6 +16,18 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+SAFE_DEFAULT_ROUTING: dict[str, Any] = {
+    "router": "store-safe-default-v0.6.2",
+    "route": "playwright",
+    "reasons": ["playwright-safe-default"],
+    "blockers": [],
+    "normalized_capabilities": ["navigate", "extract"],
+    "normalized_output_formats": ["json", "markdown", "screenshots"],
+    "browser_use_eligible": False,
+    "execution_authorized": False,
+}
+
+
 @dataclass(frozen=True)
 class RunRecord:
     run_id: str
@@ -28,6 +40,8 @@ class RunRecord:
     updated_at: str
     client_id: str | None = None
     workspace_path: str | None = None
+    routing: dict[str, Any] | None = None
+    route_locked_at: str | None = None
     result: dict[str, Any] | None = None
     error: str | None = None
 
@@ -83,6 +97,8 @@ class RunStore:
                     updated_at TEXT NOT NULL,
                     client_id TEXT,
                     workspace_path TEXT,
+                    routing_json TEXT,
+                    route_locked_at TEXT,
                     result_json TEXT,
                     error TEXT
                 );
@@ -121,9 +137,25 @@ class RunStore:
             if "client_id" not in columns:
                 connection.execute("ALTER TABLE runs ADD COLUMN client_id TEXT")
             if "workspace_path" not in columns:
-                connection.execute(
-                    "ALTER TABLE runs ADD COLUMN workspace_path TEXT"
-                )
+                connection.execute("ALTER TABLE runs ADD COLUMN workspace_path TEXT")
+            if "routing_json" not in columns:
+                connection.execute("ALTER TABLE runs ADD COLUMN routing_json TEXT")
+            if "route_locked_at" not in columns:
+                connection.execute("ALTER TABLE runs ADD COLUMN route_locked_at TEXT")
+
+            safe_default = self._canonical_routing(SAFE_DEFAULT_ROUTING)
+            connection.execute(
+                "UPDATE runs SET routing_json = ? WHERE routing_json IS NULL",
+                (safe_default,),
+            )
+            connection.execute(
+                """
+                UPDATE runs
+                SET route_locked_at = updated_at
+                WHERE route_locked_at IS NULL
+                  AND status IN ('queued', 'running', 'completed', 'failed')
+                """
+            )
             connection.execute(
                 """
                 CREATE INDEX IF NOT EXISTS runs_client_created_idx
@@ -132,8 +164,25 @@ class RunStore:
             )
 
     @staticmethod
+    def _canonical_routing(routing: dict[str, Any]) -> str:
+        route = routing.get("route")
+        if route not in {"playwright", "browser-use", "blocked"}:
+            raise RunStateError("Routing decision contains an unsupported route")
+        if routing.get("execution_authorized") is not False:
+            raise RunStateError(
+                "Routing decisions must preserve execution_authorized=false"
+            )
+        return json.dumps(
+            routing,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+
+    @staticmethod
     def _row_to_run(row: sqlite3.Row) -> RunRecord:
         result_json = row["result_json"]
+        routing_json = row["routing_json"]
         return RunRecord(
             run_id=row["run_id"],
             idempotency_key=row["idempotency_key"],
@@ -145,6 +194,8 @@ class RunStore:
             updated_at=row["updated_at"],
             client_id=row["client_id"],
             workspace_path=row["workspace_path"],
+            routing=json.loads(routing_json) if routing_json else None,
+            route_locked_at=row["route_locked_at"],
             result=json.loads(result_json) if result_json else None,
             error=row["error"],
         )
@@ -158,9 +209,11 @@ class RunStore:
         task_path: str,
         client_id: str | None = None,
         workspace_path: str | None = None,
+        routing: dict[str, Any] | None = None,
     ) -> tuple[RunRecord, bool]:
         now = utc_now()
         run_id = f"run_{uuid4().hex}"
+        canonical_routing = self._canonical_routing(routing or SAFE_DEFAULT_ROUTING)
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             existing = connection.execute(
@@ -193,8 +246,9 @@ class RunStore:
                 """
                 INSERT INTO runs (
                     run_id, idempotency_key, source, business_path, task_path,
-                    status, created_at, updated_at, client_id, workspace_path
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    status, created_at, updated_at, client_id, workspace_path,
+                    routing_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -207,17 +261,88 @@ class RunStore:
                     now,
                     client_id,
                     workspace_path,
+                    canonical_routing,
                 ),
             )
+            routing_payload = json.loads(canonical_routing)
             self._append_event(
                 connection,
                 run_id,
                 "run.created",
-                {"source": source, "client_id": client_id},
+                {
+                    "source": source,
+                    "client_id": client_id,
+                    "runtime_route": routing_payload["route"],
+                },
+                now,
+            )
+            self._append_event(
+                connection,
+                run_id,
+                "routing.selected",
+                {
+                    "route": routing_payload["route"],
+                    "router": routing_payload.get("router"),
+                    "reasons": routing_payload.get("reasons", []),
+                },
                 now,
             )
             connection.commit()
         return self.get_run(run_id), True
+
+    def set_routing_decision(
+        self,
+        *,
+        run_id: str,
+        routing: dict[str, Any],
+        actor: str,
+    ) -> RunRecord:
+        canonical_routing = self._canonical_routing(routing)
+        now = utc_now()
+        with self._connection() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute(
+                "SELECT * FROM runs WHERE run_id = ?",
+                (run_id,),
+            ).fetchone()
+            if row is None:
+                connection.rollback()
+                raise RunNotFoundError(run_id)
+            if row["status"] != "awaiting-blueprint-approval":
+                connection.rollback()
+                raise RunStateError(
+                    "Runtime routing may change only before blueprint approval"
+                )
+            if row["route_locked_at"] is not None:
+                connection.rollback()
+                raise RunStateError("Runtime routing is already locked")
+            if row["routing_json"] == canonical_routing:
+                connection.commit()
+                return self._row_to_run(row)
+
+            connection.execute(
+                """
+                UPDATE runs
+                SET routing_json = ?, updated_at = ?
+                WHERE run_id = ?
+                """,
+                (canonical_routing, now, run_id),
+            )
+            payload = json.loads(canonical_routing)
+            self._append_event(
+                connection,
+                run_id,
+                "routing.updated",
+                {
+                    "actor": actor,
+                    "route": payload["route"],
+                    "router": payload.get("router"),
+                    "reasons": payload.get("reasons", []),
+                },
+                now,
+            )
+            connection.commit()
+        return self.get_run(run_id)
 
     def list_runs(
         self,
@@ -320,13 +445,29 @@ class RunStore:
 
             status = row["status"]
             next_status = status
+            lock_route = False
+            routing = json.loads(row["routing_json"]) if row["routing_json"] else None
             if approval_kind == "blueprint":
                 if status != "awaiting-blueprint-approval":
                     connection.rollback()
                     raise RunStateError(
                         "Blueprint approval is not valid in the current state"
                     )
-                next_status = "queued" if decision == "approved" else "rejected"
+                if decision == "approved":
+                    if routing is None:
+                        connection.rollback()
+                        raise RunStateError(
+                            "Blueprint approval requires a persisted runtime route"
+                        )
+                    if routing.get("route") == "blocked":
+                        connection.rollback()
+                        raise RunStateError(
+                            "A blocked routing decision cannot be approved"
+                        )
+                    next_status = "queued"
+                    lock_route = True
+                else:
+                    next_status = "rejected"
             elif approval_kind == "action":
                 connection.rollback()
                 raise RunStateError(
@@ -351,10 +492,31 @@ class RunStore:
                     now,
                 ),
             )
-            connection.execute(
-                "UPDATE runs SET status = ?, updated_at = ? WHERE run_id = ?",
-                (next_status, now, run_id),
-            )
+            if lock_route:
+                connection.execute(
+                    """
+                    UPDATE runs
+                    SET status = ?, updated_at = ?, route_locked_at = ?
+                    WHERE run_id = ?
+                    """,
+                    (next_status, now, now, run_id),
+                )
+                self._append_event(
+                    connection,
+                    run_id,
+                    "routing.locked",
+                    {
+                        "actor": actor,
+                        "route": routing["route"],
+                        "router": routing.get("router"),
+                    },
+                    now,
+                )
+            else:
+                connection.execute(
+                    "UPDATE runs SET status = ?, updated_at = ? WHERE run_id = ?",
+                    (next_status, now, run_id),
+                )
             self._append_event(
                 connection,
                 run_id,
@@ -373,6 +535,8 @@ class RunStore:
                 """
                 SELECT * FROM runs
                 WHERE status = 'queued'
+                  AND routing_json IS NOT NULL
+                  AND route_locked_at IS NOT NULL
                 ORDER BY created_at
                 LIMIT 1
                 """
@@ -380,6 +544,7 @@ class RunStore:
             if row is None:
                 connection.commit()
                 return None
+            routing = json.loads(row["routing_json"])
             connection.execute(
                 """
                 UPDATE runs
@@ -392,7 +557,7 @@ class RunStore:
                 connection,
                 row["run_id"],
                 "run.started",
-                {},
+                {"runtime_route": routing.get("route")},
                 now,
             )
             connection.commit()
@@ -445,7 +610,7 @@ class RunStore:
         with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             row = connection.execute(
-                "SELECT status FROM runs WHERE run_id = ?",
+                "SELECT status, routing_json FROM runs WHERE run_id = ?",
                 (run_id,),
             ).fetchone()
             if row is None:
@@ -468,11 +633,15 @@ class RunStore:
                     run_id,
                 ),
             )
+            routing = json.loads(row["routing_json"]) if row["routing_json"] else {}
             self._append_event(
                 connection,
                 run_id,
                 f"run.{status}",
-                {"runtime_status": result.get("status")},
+                {
+                    "runtime_status": result.get("status"),
+                    "runtime_route": routing.get("route"),
+                },
                 now,
             )
             connection.commit()
