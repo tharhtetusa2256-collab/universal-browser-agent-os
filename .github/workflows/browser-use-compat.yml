@@ -43,17 +43,20 @@ jobs:
       - name: Run Browser Use adapter unit tests
         run: python -m unittest tests.test_browser_use_readonly -v
 
-      - name: Verify installed Browser Use action contract
+      - name: Verify installed Browser Use action and model contracts
         run: |
           python - <<'PY'
           from importlib.metadata import version
           from universal_browser_agent.adapters.browser_use_readonly import (
               verify_installed_browser_use_contract,
+              verify_installed_openrouter_contract,
           )
 
           actions = verify_installed_browser_use_contract()
+          provider = verify_installed_openrouter_contract()
           print(f"browser-use={version('browser-use')}")
           print(f"read-only actions={actions}")
+          print(f"openrouter provider={provider}")
           PY
 
       - name: Verify BrowserProfile security parameters are supported
