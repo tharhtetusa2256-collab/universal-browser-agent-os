@@ -60,6 +60,7 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
             frozenset(
                 {
                     "navigate",
+                    "find_text",
                     "search_page",
                     "find_elements",
                     "extract",
@@ -81,7 +82,7 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
 
     def test_executed_action_verification_is_fail_closed(self) -> None:
         BrowserUseReadOnlyAdapter._verify_executed_actions(
-            ("navigate", "search_page", "find_elements", "extract", "done")
+            ("navigate", "find_text", "search_page", "find_elements", "extract", "done")
         )
         with self.assertRaises(BrowserUseCapabilityError):
             BrowserUseReadOnlyAdapter._verify_executed_actions(
@@ -99,7 +100,7 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
         self.assertIn("READ-ONLY SECURITY CONTRACT", prompt)
         self.assertIn("human takeover", prompt)
         self.assertIn("CAPTCHA bypass", prompt)
-        self.assertIn("search_page/find_elements", prompt)
+        self.assertIn("find_text/search_page/find_elements", prompt)
         self.assertIn("example.com", prompt)
         self.assertIn("https://example.com/", prompt)
 
@@ -120,6 +121,7 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
         self.assertFalse(READ_ONLY_ALLOWED_ACTIONS & prohibited)
 
     def test_expected_read_only_inspection_actions_are_allowed(self) -> None:
+        self.assertIn("find_text", READ_ONLY_ALLOWED_ACTIONS)
         self.assertIn("search_page", READ_ONLY_ALLOWED_ACTIONS)
         self.assertIn("find_elements", READ_ONLY_ALLOWED_ACTIONS)
 
