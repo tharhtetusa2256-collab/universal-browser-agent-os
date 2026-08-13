@@ -7,7 +7,7 @@ import asyncio
 import signal
 
 from .config import ServiceSettings
-from .orchestrator import RunOrchestrator
+from .observed_orchestrator import ObservedRunOrchestrator
 from .store import RunStore
 
 
@@ -16,7 +16,7 @@ async def worker_loop(settings: ServiceSettings, *, once: bool = False) -> int:
     store.requeue_stale_runs(
         older_than_minutes=settings.stale_run_minutes,
     )
-    orchestrator = RunOrchestrator(settings, store)
+    orchestrator = ObservedRunOrchestrator(settings, store)
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
     for signal_name in (signal.SIGINT, signal.SIGTERM):
