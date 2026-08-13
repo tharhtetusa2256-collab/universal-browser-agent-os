@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from ..agent import BrowserRuntimeRouter, BrowserWorkflowPlanner, RoutingContext
 from .config import ServiceSettings
+from .metrics_reporting import RuntimeMetricsReader
 from .orchestrator import RunOrchestrator, ServiceRequestError
 from .store import RunNotFoundError, RunStateError, RunStore
 
@@ -76,13 +77,14 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     orchestrator = RunOrchestrator(resolved, store)
     workflow_planner = BrowserWorkflowPlanner()
     runtime_router = BrowserRuntimeRouter()
+    metrics_reader = RuntimeMetricsReader(store)
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.6.2",
+        version="0.6.3",
         description=(
             "Approval-gated API for validated browser-agent planning, durable "
-            "runtime routing, and public read-only execution. State-changing "
-            "browser actions remain unsupported."
+            "runtime routing, public read-only execution, and normalized runtime "
+            "evaluation metrics. State-changing browser actions remain unsupported."
         ),
     )
 
@@ -96,7 +98,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.6.2"}
+        return {"status": "ok", "version": "0.6.3"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
@@ -188,6 +190,59 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
             }
         except RunNotFoundError as exc:
             raise HTTPException(status_code=404, detail="Run not found") from exc
+
+    @app.get(
+        "/v1/runs/{run_id}/metrics",
+        dependencies=[Depends(require_token)],
+    )
+    def get_run_metrics(run_id: str) -> dict[str, Any]:
+        try:
+            return {"metrics": metrics_reader.for_run(run_id)}
+        except RunNotFoundError as exc:
+            raise HTTPException(
+                status_code=404,
+                detail="Runtime metrics not available",
+            ) from exc
+
+    @app.get("/v1/metrics/runtime", dependencies=[Depends(require_token)])
+    def runtime_metrics_summary(
+        client_id: Optional[str] = None,
+        route: Optional[str] = None,
+        limit: int = 500,
+    ) -> dict[str, Any]:
+        try:
+            if client_id is not None:
+                orchestrator.get_workspace(client_id)
+            return metrics_reader.summary(
+                client_id=client_id,
+                route=route,
+                limit=limit,
+            )
+        except ServiceRequestError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/v1/metrics/runtime/runs", dependencies=[Depends(require_token)])
+    def runtime_metrics_runs(
+        client_id: Optional[str] = None,
+        route: Optional[str] = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        try:
+            if client_id is not None:
+                orchestrator.get_workspace(client_id)
+            return {
+                "runs": metrics_reader.list(
+                    client_id=client_id,
+                    route=route,
+                    limit=limit,
+                )
+            }
+        except ServiceRequestError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     @app.post(
         "/v1/runs/{run_id}/routing",
