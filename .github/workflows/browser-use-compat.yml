@@ -1,0 +1,76 @@
+name: Browser Use Compatibility Gate
+
+on:
+  pull_request:
+    paths:
+      - "pyproject.toml"
+      - "src/universal_browser_agent/adapters/browser_use_readonly.py"
+      - "src/universal_browser_agent/browser_use_cli.py"
+      - "tests/test_browser_use_readonly.py"
+      - ".github/workflows/browser-use-compat.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pyproject.toml"
+      - "src/universal_browser_agent/adapters/browser_use_readonly.py"
+      - "src/universal_browser_agent/browser_use_cli.py"
+      - "tests/test_browser_use_readonly.py"
+      - ".github/workflows/browser-use-compat.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-use-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install optional Browser Use runtime
+        run: python -m pip install --disable-pip-version-check ".[test,browser-use]"
+
+      - name: Run Browser Use adapter unit tests
+        run: python -m unittest tests.test_browser_use_readonly -v
+
+      - name: Verify installed Browser Use action and model contracts
+        run: |
+          python - <<'PY'
+          from importlib.metadata import version
+          from universal_browser_agent.adapters.browser_use_readonly import (
+              verify_installed_browser_use_contract,
+              verify_installed_openrouter_contract,
+          )
+
+          actions = verify_installed_browser_use_contract()
+          provider = verify_installed_openrouter_contract()
+          print(f"browser-use={version('browser-use')}")
+          print(f"read-only actions={actions}")
+          print(f"openrouter provider={provider}")
+          PY
+
+      - name: Verify BrowserProfile security parameters are supported
+        run: |
+          python - <<'PY'
+          from browser_use import BrowserProfile
+
+          profile = BrowserProfile(
+              headless=True,
+              keep_alive=False,
+              allowed_domains=["example.com"],
+              block_ip_addresses=True,
+          )
+          assert profile.allowed_domains == ["example.com"]
+          assert profile.block_ip_addresses is True
+          print("BrowserProfile security contract passed.")
+          PY
