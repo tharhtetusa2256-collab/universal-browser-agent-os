@@ -57,7 +57,16 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
 
     def test_contract_accepts_read_only_subset_with_required_actions(self) -> None:
         enforce_read_only_tool_contract(
-            frozenset({"navigate", "extract", "scroll", "done"})
+            frozenset(
+                {
+                    "navigate",
+                    "search_page",
+                    "find_elements",
+                    "extract",
+                    "scroll",
+                    "done",
+                }
+            )
         )
 
     def test_contract_rejects_new_or_state_changing_action(self) -> None:
@@ -72,7 +81,7 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
 
     def test_executed_action_verification_is_fail_closed(self) -> None:
         BrowserUseReadOnlyAdapter._verify_executed_actions(
-            ("navigate", "extract", "done")
+            ("navigate", "search_page", "find_elements", "extract", "done")
         )
         with self.assertRaises(BrowserUseCapabilityError):
             BrowserUseReadOnlyAdapter._verify_executed_actions(
@@ -90,10 +99,11 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
         self.assertIn("READ-ONLY SECURITY CONTRACT", prompt)
         self.assertIn("human takeover", prompt)
         self.assertIn("CAPTCHA bypass", prompt)
+        self.assertIn("search_page/find_elements", prompt)
         self.assertIn("example.com", prompt)
         self.assertIn("https://example.com/", prompt)
 
-    def test_allowed_actions_do_not_include_state_changes(self) -> None:
+    def test_allowed_actions_do_not_include_state_changes_or_file_output(self) -> None:
         prohibited = {
             "click",
             "input",
@@ -101,12 +111,17 @@ class BrowserUseReadOnlyContractTests(unittest.TestCase):
             "send_keys",
             "evaluate",
             "select_dropdown",
+            "save_as_pdf",
             "write_file",
             "replace_file",
             "publish",
             "submit",
         }
         self.assertFalse(READ_ONLY_ALLOWED_ACTIONS & prohibited)
+
+    def test_expected_read_only_inspection_actions_are_allowed(self) -> None:
+        self.assertIn("search_page", READ_ONLY_ALLOWED_ACTIONS)
+        self.assertIn("find_elements", READ_ONLY_ALLOWED_ACTIONS)
 
     def test_max_steps_is_bounded(self) -> None:
         with self.assertRaises(ValueError):
