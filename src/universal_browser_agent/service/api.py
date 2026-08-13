@@ -54,7 +54,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     workflow_planner = BrowserWorkflowPlanner()
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.5.2",
+        version="0.6.0",
         description=(
             "Approval-gated API for validated browser-agent planning and "
             "public-page browser tasks. AI planning remains non-executing and "
@@ -72,7 +72,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.5.2"}
+        return {"status": "ok", "version": "0.6.0"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
