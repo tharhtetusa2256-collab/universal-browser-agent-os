@@ -23,7 +23,7 @@ core remains unchanged. This is not a client-facing SaaS.
 
 ## Current release
 
-**v0.6.0 — Optional Browser Use public read-only adapter**
+**v0.6.1 — Deterministic Playwright / Browser Use tool router**
 
 Included:
 
@@ -32,7 +32,7 @@ Included:
 - constrained OpenRouter workflow-intent preview through `POST /v1/plans/browser-workflow/ai-preview`;
 - operator-controlled approved domains and start URLs that AI cannot expand;
 - fail-closed consequential and unknown capability handling;
-- `execution_authorized = false` invariant for planning responses;
+- `execution_authorized = false` invariant for planning and routing responses;
 - multilingual committed planner-evaluation dataset covering read-only, consequential, and unknown capabilities;
 - `uba-eval` CLI with deterministic fixture replay and explicit live OpenRouter evaluation modes;
 - zero-cost GitHub Actions planner-evaluation gate with JSON report artifacts;
@@ -43,6 +43,12 @@ Included:
 - approved-domain, public-DNS, and visited-URL validation around agentic navigation;
 - Browser Use evidence reports without storing raw model thoughts / chain-of-thought;
 - dedicated Browser Use dependency/tool compatibility CI without LLM API calls;
+- deterministic `playwright` / `browser-use` / `blocked` runtime routing decisions;
+- Playwright-safe-default routing with explicit Browser Use opt-in;
+- fail-closed routing for consequential, unknown, unsupported-mode, and unsupported-output requests;
+- deterministic Playwright routing for CSS selectors, CSV output, or strict request-level GET/HEAD-only requirements;
+- `uba-route` non-executing CLI preview;
+- authenticated `POST /v1/routes/browser-runtime` non-executing routing endpoint;
 - repository-native `clients/<client-id>/` workspaces;
 - client workspace schema and registry validation;
 - client-scoped API run creation and history;
@@ -83,10 +89,13 @@ Not included yet:
 - login, CAPTCHA, passkeys, or 2FA handling;
 - clicking controls, filling forms, or submitting data;
 - sending, publishing, purchasing, deleting, or account changes;
-- automatic routing of approved runs into Browser Use;
+- automatic worker dispatch into Browser Use from a routing decision;
 - hosted dashboard or SaaS billing.
 
-This boundary is intentional. AI planning is non-executing and the runtime remains deliberately limited to public, read-only research until authenticated and state-changing paths have separate isolation, approval, and evidence controls. Browser Use is manual and opt-in in v0.6; default approved-run execution remains the stricter Playwright runtime.
+This boundary is intentional. AI planning and runtime routing are non-executing.
+The durable worker still uses the stricter Playwright runtime by default. Browser
+Use remains an explicit, public read-only pilot until routing decisions are
+persisted and separately wired into approved execution with evidence controls.
 
 ## Repository structure
 
@@ -114,6 +123,7 @@ universal-browser-agent-os/
 │       ├── agent/
 │       ├── adapters/
 │       ├── browser_use_cli.py
+│       ├── router_cli.py
 │       ├── evals.py
 │       └── service/
 ├── prompts/
@@ -136,6 +146,7 @@ universal-browser-agent-os/
 │   ├── V0_5_1_AI_PLANNER.md
 │   ├── V0_5_2_PLANNER_EVALS.md
 │   ├── V0_6_BROWSER_USE_READONLY.md
+│   ├── V0_6_1_TOOL_ROUTER.md
 │   ├── HOSTINGER_DEPLOYMENT.md
 │   ├── adr/
 │   └── GETTING_STARTED.md
@@ -223,8 +234,42 @@ uba-browser-use \
 
 The Browser Use adapter exposes only read-only navigation/extraction tools and
 fails closed if the installed upstream tool registry contains an unexpected
-action. It is not used by the FastAPI worker automatically in v0.6. See
+action. It is not used by the FastAPI worker automatically. See
 [v0.6 Browser Use read-only adapter](docs/V0_6_BROWSER_USE_READONLY.md).
+
+## Tool Router v0.6.1 quick start
+
+Preview the safe-default routing decision without starting a browser:
+
+```bash
+uba-route \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json
+```
+
+Explicitly opt in to Browser Use when the task is eligible:
+
+```bash
+uba-route \
+  --business configs/example-business/business-profile.json \
+  --task templates/competitor-research/task.json \
+  --agentic-navigation
+```
+
+The current competitor-research template requests CSV output, so it still routes
+to Playwright. Browser Use is selected only for eligible public read-only tasks
+whose output requirements fit the Browser Use evidence path and whose caller
+explicitly requests agentic navigation.
+
+The authenticated API preview is:
+
+```text
+POST /v1/routes/browser-runtime
+```
+
+Routing responses always contain `execution_authorized=false`; they do not start
+a browser or bypass the existing approval flow. See
+[v0.6.1 deterministic tool router](docs/V0_6_1_TOOL_ROUTER.md).
 
 ## Client workspace quick start
 
@@ -313,6 +358,7 @@ configuration.
 - [v0.5.1 AI planner](docs/V0_5_1_AI_PLANNER.md)
 - [v0.5.2 planner evaluations](docs/V0_5_2_PLANNER_EVALS.md)
 - [v0.6 Browser Use read-only adapter](docs/V0_6_BROWSER_USE_READONLY.md)
+- [v0.6.1 deterministic tool router](docs/V0_6_1_TOOL_ROUTER.md)
 - [Getting started](docs/GETTING_STARTED.md)
 - [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
 - [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
@@ -367,7 +413,9 @@ configuration.
 - [x] fail-closed Browser Use action allowlist;
 - [x] domain/public-DNS/history validation and evidence reports;
 - [x] zero-LLM-cost Browser Use compatibility CI;
-- [ ] deterministic Playwright-vs-Browser-Use tool router;
+- [x] deterministic Playwright-vs-Browser-Use tool router;
+- [ ] persist routing decisions with approved runs;
+- [ ] dispatch approved eligible runs to Browser Use automatically;
 - [ ] measured Browser Use success rate, intervention rate, latency, and cost per run;
 - [ ] production routing approval after pilot evidence.
 

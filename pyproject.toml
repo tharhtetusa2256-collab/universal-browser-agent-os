@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "universal-browser-agent-os"
-version = "0.6.0"
+version = "0.6.1"
 description = "Tharhtet Browser Agent: an operator-owned multi-client browser-agent service"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -33,6 +33,7 @@ uba-notion-read = "universal_browser_agent.notion_cli:main"
 uba-secrets = "universal_browser_agent.secret_cli:main"
 uba-eval = "universal_browser_agent.evals:run_cli"
 uba-browser-use = "universal_browser_agent.browser_use_cli:main"
+uba-route = "universal_browser_agent.router_cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
