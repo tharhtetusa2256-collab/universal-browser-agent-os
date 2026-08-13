@@ -87,8 +87,7 @@ def build_runtime_metrics(
 ) -> RuntimeMetrics:
     """Normalize adapter-specific evidence into one comparison-safe snapshot."""
 
-    if route not in {"playwright", "browser-use"}:
-        raise ValueError(f"Unsupported runtime route for metrics: {route}")
+    route = route.strip() or "unknown"
     if duration_ms < 0:
         raise ValueError("duration_ms must be non-negative")
 
@@ -106,7 +105,7 @@ def build_runtime_metrics(
         total_tokens: int | None = 0
         estimated_cost_usd: float | None = 0.0
         usage = None
-    else:
+    elif route == "browser-use":
         item_count = _count_list(result, "extracted_content")
         failure_count = _count_list(result, "errors")
         blocked_request_count = 0
@@ -124,6 +123,16 @@ def build_runtime_metrics(
         estimated_cost_usd = (
             _safe_non_negative_float(usage.get("total_cost")) if usage else None
         )
+    else:
+        item_count = 0
+        failure_count = 0
+        blocked_request_count = 0
+        model = None
+        prompt_tokens = None
+        completion_tokens = None
+        total_tokens = None
+        estimated_cost_usd = None
+        usage = None
 
     intervention_reason_value = result.get("intervention_reason")
     intervention_reason = (
