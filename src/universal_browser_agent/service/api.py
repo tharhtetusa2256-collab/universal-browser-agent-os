@@ -8,6 +8,7 @@ from typing import Any, Optional
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from ..agent import BrowserWorkflowPlanner
 from .config import ServiceSettings
 from .orchestrator import RunOrchestrator, ServiceRequestError
 from .store import RunNotFoundError, RunStateError, RunStore
@@ -37,17 +38,27 @@ class PlanRequest(BaseModel):
     start_urls: list[str] = Field(min_length=1, max_length=50)
 
 
+class BrowserWorkflowPlanRequest(PlanRequest):
+    requested_capabilities: list[str] = Field(
+        default_factory=lambda: ["navigate", "extract"],
+        min_length=1,
+        max_length=25,
+    )
+
+
 def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     resolved = settings or ServiceSettings.from_env()
     resolved.require_api_token()
     store = RunStore(resolved.database_path)
     orchestrator = RunOrchestrator(resolved, store)
+    workflow_planner = BrowserWorkflowPlanner()
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.4.0",
+        version="0.5.0",
         description=(
-            "Approval-gated API for validated public-page browser tasks. "
-            "State-changing browser actions remain unsupported."
+            "Approval-gated API for validated browser-agent planning and "
+            "public-page browser tasks. State-changing browser actions remain "
+            "unsupported."
         ),
     )
 
@@ -61,7 +72,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.4.0"}
+        return {"status": "ok", "version": "0.5.0"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
@@ -175,6 +186,34 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Run not found") from exc
         except (RunStateError, ServiceRequestError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.post(
+        "/v1/plans/browser-workflow",
+        dependencies=[Depends(require_token)],
+    )
+    def plan_browser_workflow(
+        request: BrowserWorkflowPlanRequest,
+    ) -> dict[str, Any]:
+        try:
+            proposal = workflow_planner.plan(
+                objective=request.objective,
+                approved_domains=request.approved_domains,
+                start_urls=request.start_urls,
+                requested_capabilities=request.requested_capabilities,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        return {
+            "status": proposal["status"],
+            "executable": False,
+            "planner": "langgraph-deterministic-v0.5",
+            "proposal": proposal,
+            "notice": (
+                "This plan cannot authorize execution. Create or update a "
+                "validated task specification and complete the existing approval "
+                "flow before any runtime action."
+            ),
+        }
 
     @app.post(
         "/v1/plans/extraction-preview",
