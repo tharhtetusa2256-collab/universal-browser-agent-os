@@ -58,6 +58,7 @@ For Browser Use 0.13.7, only these actions may be exposed by this adapter:
 - `go_back`
 - `wait`
 - `scroll`
+- `find_text`
 - `search_page`
 - `find_elements`
 - `extract`
@@ -66,8 +67,9 @@ For Browser Use 0.13.7, only these actions may be exposed by this adapter:
 - `dropdown_options`
 - `done`
 
-`search_page` and `find_elements` are accepted only as Browser Use's fixed
-read-only DOM inspection tools. Arbitrary JavaScript execution remains excluded.
+`find_text` is Browser Use's built-in scroll-to-text operation. `search_page`
+and `find_elements` are accepted only as Browser Use's fixed read-only DOM
+inspection tools. Arbitrary JavaScript execution remains excluded.
 
 The following current upstream defaults are explicitly excluded:
 
