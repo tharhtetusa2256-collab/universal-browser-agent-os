@@ -54,11 +54,11 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
     workflow_planner = BrowserWorkflowPlanner()
     app = FastAPI(
         title="Tharhtet Browser Agent",
-        version="0.5.0",
+        version="0.5.1",
         description=(
             "Approval-gated API for validated browser-agent planning and "
-            "public-page browser tasks. State-changing browser actions remain "
-            "unsupported."
+            "public-page browser tasks. AI planning remains non-executing and "
+            "state-changing browser actions remain unsupported."
         ),
     )
 
@@ -72,7 +72,7 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok", "version": "0.5.0"}
+        return {"status": "ok", "version": "0.5.1"}
 
     @app.get("/v1/clients", dependencies=[Depends(require_token)])
     def list_clients() -> dict[str, Any]:
@@ -212,6 +212,34 @@ def create_app(settings: Optional[ServiceSettings] = None) -> FastAPI:
                 "This plan cannot authorize execution. Create or update a "
                 "validated task specification and complete the existing approval "
                 "flow before any runtime action."
+            ),
+        }
+
+    @app.post(
+        "/v1/plans/browser-workflow/ai-preview",
+        dependencies=[Depends(require_token)],
+    )
+    async def preview_ai_browser_workflow(
+        request: PlanRequest,
+    ) -> dict[str, Any]:
+        try:
+            proposal = await orchestrator.propose_ai_workflow(
+                objective=request.objective,
+                approved_domains=request.approved_domains,
+                start_urls=request.start_urls,
+            )
+        except (ServiceRequestError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+        policy_plan = proposal["policy_plan"]
+        return {
+            "status": policy_plan["status"],
+            "executable": False,
+            "planner": "openrouter-intent+langgraph-policy-v0.5.1",
+            "proposal": proposal,
+            "notice": (
+                "AI output is an untrusted intent draft. Operator-controlled "
+                "domains and URLs remain fixed, and deterministic policy decides "
+                "risk. This endpoint never authorizes execution."
             ),
         }
 
