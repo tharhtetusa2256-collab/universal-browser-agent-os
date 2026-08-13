@@ -27,10 +27,10 @@ class RuntimeRouterApiTests(unittest.TestCase):
         self.client.close()
         self.tempdir.cleanup()
 
-    def test_health_reports_v062(self) -> None:
+    def test_health_reports_v063(self) -> None:
         response = self.client.get("/health")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"status": "ok", "version": "0.6.2"})
+        self.assertEqual(response.json(), {"status": "ok", "version": "0.6.3"})
 
     def test_route_endpoint_requires_authentication(self) -> None:
         response = self.client.post(
