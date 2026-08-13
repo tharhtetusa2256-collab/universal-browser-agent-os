@@ -1,4 +1,4 @@
-"""Application service that binds validation, approvals, runtime, and outputs."""
+"""Application service that binds validation, approvals, routing, runtime, and outputs."""
 
 from __future__ import annotations
 
@@ -7,13 +7,18 @@ import re
 from pathlib import Path
 from typing import Any
 
+from ..adapters.browser_use_readonly import BrowserUseReadOnlyAdapter
 from ..adapters.notion import NotionRunPublisher
 from ..adapters.openrouter import (
     OpenRouterPlanner,
     OpenRouterWorkflowIntentPlanner,
 )
 from ..adapters.webhook import SignedWebhookPublisher
-from ..agent import BrowserWorkflowPlanner
+from ..agent import (
+    BrowserRuntimeRouter,
+    BrowserWorkflowPlanner,
+    RoutingContext,
+)
 from ..models import RuntimeTask
 from ..playwright_runtime import ReadOnlyPlaywrightRuntime
 from ..policy import DomainPolicy
@@ -45,6 +50,7 @@ class RunOrchestrator:
         self.settings = settings
         self.store = store
         self.workspaces = WorkspaceRegistry(settings.repo_root)
+        self.runtime_router = BrowserRuntimeRouter()
 
     def list_workspaces(self) -> list[ClientWorkspace]:
         return self.workspaces.list()
@@ -82,6 +88,59 @@ class RunOrchestrator:
             raise ServiceRequestError(f"Configuration file does not exist: {value}")
         return candidate
 
+    def _routing_for_task(
+        self,
+        task: RuntimeTask,
+        *,
+        agentic_navigation: bool = False,
+        require_request_level_get_head_only: bool = False,
+    ) -> dict[str, Any]:
+        decision = self.runtime_router.decide(
+            RoutingContext(
+                mode=task.mode,
+                requested_capabilities=("navigate", "extract"),
+                selectors_present=bool(task.selectors),
+                output_formats=task.output_formats,
+                agentic_navigation=agentic_navigation,
+                require_request_level_get_head_only=(
+                    require_request_level_get_head_only
+                ),
+            )
+        )
+        return decision.to_dict()
+
+    def _validate_record_workspace(self, record: RunRecord) -> None:
+        if record.client_id is None:
+            return
+        workspace = self.get_workspace(record.client_id)
+        if workspace.status != "active":
+            raise ServiceRequestError(
+                f"Client workspace is not active: {workspace.status}"
+            )
+        if record.workspace_path != workspace.manifest_path:
+            raise ServiceRequestError(
+                "Stored run workspace no longer matches the registry"
+            )
+        registered_paths = {task.path for task in workspace.tasks if task.enabled}
+        if (
+            record.business_path != workspace.business_path
+            or record.task_path not in registered_paths
+        ):
+            raise ServiceRequestError(
+                "Stored run configuration is no longer enabled by the client workspace"
+            )
+
+    def _load_record_task(self, record: RunRecord) -> tuple[dict[str, Any], RuntimeTask]:
+        self._validate_record_workspace(record)
+        business_path = self.settings.repo_root / record.business_path
+        task_path = self.settings.repo_root / record.task_path
+        _, task_data = load_validated_configuration(
+            business_path,
+            task_path,
+            self.settings.repo_root,
+        )
+        return task_data, RuntimeTask.from_dict(task_data)
+
     def create_run(
         self,
         *,
@@ -110,12 +169,14 @@ class RunOrchestrator:
             task,
             self.settings.repo_root,
         )
-        RuntimeTask.from_dict(task_data)
+        runtime_task = RuntimeTask.from_dict(task_data)
+        routing = self._routing_for_task(runtime_task)
         return self.store.create_run(
             idempotency_key=idempotency_key,
             source=source,
             business_path=str(business.relative_to(self.settings.repo_root)),
             task_path=str(task.relative_to(self.settings.repo_root)),
+            routing=routing,
         )
 
     def create_client_run(
@@ -145,7 +206,8 @@ class RunOrchestrator:
             task,
             self.settings.repo_root,
         )
-        RuntimeTask.from_dict(task_data)
+        runtime_task = RuntimeTask.from_dict(task_data)
+        routing = self._routing_for_task(runtime_task)
         return self.store.create_run(
             idempotency_key=idempotency_key,
             source=source,
@@ -153,6 +215,49 @@ class RunOrchestrator:
             task_path=task_entry.path,
             client_id=workspace.client_id,
             workspace_path=workspace.manifest_path,
+            routing=routing,
+        )
+
+    def configure_run_routing(
+        self,
+        *,
+        run_id: str,
+        actor: str,
+        agentic_navigation: bool,
+        require_request_level_get_head_only: bool,
+    ) -> RunRecord:
+        actor = actor.strip()
+        if not actor or len(actor) > 160:
+            raise ServiceRequestError("actor must be a non-empty identifier")
+        record = self.store.get_run(run_id)
+        if record.client_id is not None:
+            workspace = self.get_workspace(record.client_id)
+            if actor != workspace.owner_id:
+                raise ServiceRequestError(
+                    "Only the configured workspace owner may change runtime routing"
+                )
+        _, task = self._load_record_task(record)
+        routing = self._routing_for_task(
+            task,
+            agentic_navigation=agentic_navigation,
+            require_request_level_get_head_only=(
+                require_request_level_get_head_only
+            ),
+        )
+        if routing["route"] == "browser-use":
+            if not self.settings.browser_use_worker_enabled:
+                raise ServiceRequestError(
+                    "Browser Use worker dispatch is disabled. Set "
+                    "UBA_BROWSER_USE_WORKER_ENABLED=true before selecting this route."
+                )
+            if not self.settings.openrouter_api_key:
+                raise ServiceRequestError(
+                    "Browser Use worker dispatch requires OPENROUTER_API_KEY"
+                )
+        return self.store.set_routing_decision(
+            run_id=run_id,
+            routing=routing,
+            actor=actor,
         )
 
     def approve_run(
@@ -191,6 +296,21 @@ class RunOrchestrator:
                 raise ServiceRequestError(
                     "Blueprint approval confirmations must both be true"
                 )
+            routing = record.routing or {}
+            if routing.get("route") == "browser-use":
+                if details.get("runtime_route_reviewed") is not True:
+                    raise ServiceRequestError(
+                        "Browser Use blueprint approval must confirm "
+                        "runtime_route_reviewed=true"
+                    )
+                if not self.settings.browser_use_worker_enabled:
+                    raise ServiceRequestError(
+                        "Browser Use worker dispatch is disabled"
+                    )
+                if not self.settings.openrouter_api_key:
+                    raise ServiceRequestError(
+                        "Browser Use worker dispatch requires OPENROUTER_API_KEY"
+                    )
         secret_keys = find_secret_like_keys(details)
         if secret_keys:
             raise ServiceRequestError(
@@ -289,40 +409,51 @@ class RunOrchestrator:
         if record is None:
             return None
         try:
-            if record.client_id is not None:
-                workspace = self.get_workspace(record.client_id)
-                if workspace.status != "active":
-                    raise ServiceRequestError(
-                        f"Client workspace is not active: {workspace.status}"
-                    )
-                if record.workspace_path != workspace.manifest_path:
-                    raise ServiceRequestError(
-                        "Stored run workspace no longer matches the registry"
-                    )
-                registered_paths = {
-                    task.path for task in workspace.tasks if task.enabled
-                }
-                if (
-                    record.business_path != workspace.business_path
-                    or record.task_path not in registered_paths
-                ):
-                    raise ServiceRequestError(
-                        "Stored run configuration is no longer enabled by the "
-                        "client workspace"
-                    )
-            business_path = self.settings.repo_root / record.business_path
-            task_path = self.settings.repo_root / record.task_path
-            _, task_data = load_validated_configuration(
-                business_path,
-                task_path,
-                self.settings.repo_root,
+            if not record.routing or not record.route_locked_at:
+                raise ServiceRequestError(
+                    "Claimed run is missing a locked runtime routing decision"
+                )
+            task_data, task = self._load_record_task(record)
+            route = record.routing.get("route")
+            self.store.append_event(
+                record.run_id,
+                "runtime.dispatched",
+                {
+                    "route": route,
+                    "router": record.routing.get("router"),
+                },
             )
-            task = RuntimeTask.from_dict(task_data)
-            runtime = ReadOnlyPlaywrightRuntime(self.settings.repo_root, task)
-            report = await runtime.run()
+            if route == "playwright":
+                runtime = ReadOnlyPlaywrightRuntime(self.settings.repo_root, task)
+                report = await runtime.run()
+            elif route == "browser-use":
+                if not self.settings.browser_use_worker_enabled:
+                    raise ServiceRequestError(
+                        "Browser Use worker dispatch is disabled"
+                    )
+                if not self.settings.openrouter_api_key:
+                    raise ServiceRequestError(
+                        "Browser Use worker dispatch requires OPENROUTER_API_KEY"
+                    )
+                runtime = BrowserUseReadOnlyAdapter(
+                    self.settings.repo_root,
+                    task,
+                    objective=str(task_data.get("objective", "")).strip(),
+                    model=self.settings.browser_use_model,
+                )
+                report = await runtime.run()
+            else:
+                raise ServiceRequestError(
+                    f"Locked runtime route is not executable: {route}"
+                )
+
+            result = report.to_dict()
+            result["runtime_route"] = route
+            result["routing_router"] = record.routing.get("router")
+            result["route_locked_at"] = record.route_locked_at
             completed = self.store.complete_run(
                 record.run_id,
-                result=report.to_dict(),
+                result=result,
                 succeeded=report.status != "failed",
             )
         except Exception as exc:
