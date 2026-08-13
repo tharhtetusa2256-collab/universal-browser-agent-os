@@ -1,4 +1,4 @@
-"""Environment-backed configuration for the v0.4 service."""
+"""Environment-backed configuration for the durable service."""
 
 from __future__ import annotations
 
@@ -12,6 +12,18 @@ def _env_path(name: str, default: Path) -> Path:
     return Path(value).expanduser().resolve() if value else default.resolve()
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
 @dataclass(frozen=True)
 class ServiceSettings:
     """Runtime settings with secrets loaded only from the environment."""
@@ -23,6 +35,8 @@ class ServiceSettings:
     stale_run_minutes: int = 480
     openrouter_api_key: str | None = None
     openrouter_model: str = "openai/gpt-4.1-mini"
+    browser_use_worker_enabled: bool = False
+    browser_use_model: str = "openai/gpt-4.1-mini"
     notion_api_key: str | None = None
     notion_database_id: str | None = None
     notion_title_property: str = "Name"
@@ -62,6 +76,14 @@ class ServiceSettings:
             openrouter_api_key=os.environ.get("OPENROUTER_API_KEY"),
             openrouter_model=os.environ.get(
                 "UBA_OPENROUTER_MODEL",
+                "openai/gpt-4.1-mini",
+            ),
+            browser_use_worker_enabled=_env_bool(
+                "UBA_BROWSER_USE_WORKER_ENABLED",
+                False,
+            ),
+            browser_use_model=os.environ.get(
+                "UBA_BROWSER_USE_MODEL",
                 "openai/gpt-4.1-mini",
             ),
             notion_api_key=os.environ.get("NOTION_API_KEY"),
