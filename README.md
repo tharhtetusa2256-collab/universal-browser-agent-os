@@ -23,10 +23,16 @@ core remains unchanged. This is not a client-facing SaaS.
 
 ## Current release
 
-**v0.4 — Operator-owned client workspace foundation**
+**v0.5.1 — LangGraph planning and constrained AI intent preview**
 
 Included:
 
+- deterministic LangGraph browser-workflow planning and risk classification;
+- authenticated `POST /v1/plans/browser-workflow` planning endpoint;
+- constrained OpenRouter workflow-intent preview through `POST /v1/plans/browser-workflow/ai-preview`;
+- operator-controlled approved domains and start URLs that AI cannot expand;
+- fail-closed consequential and unknown capability handling;
+- `execution_authorized = false` invariant for planning responses;
 - repository-native `clients/<client-id>/` workspaces;
 - client workspace schema and registry validation;
 - client-scoped API run creation and history;
@@ -69,8 +75,7 @@ Not included yet:
 - sending, publishing, purchasing, deleting, or account changes;
 - hosted dashboard or SaaS billing.
 
-This boundary is intentional. The runtime is deliberately limited to public,
-read-only research until its safety and reliability are measured in pilot runs.
+This boundary is intentional. AI planning is non-executing and the runtime remains deliberately limited to public, read-only research until authenticated and state-changing paths have separate isolation, approval, and evidence controls.
 
 ## Repository structure
 
@@ -93,6 +98,7 @@ universal-browser-agent-os/
 │       └── credential-references.json
 ├── src/
 │   └── universal_browser_agent/
+│       ├── agent/
 │       ├── adapters/
 │       └── service/
 ├── prompts/
@@ -111,6 +117,8 @@ universal-browser-agent-os/
 │   └── validate_configs.py
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── V0_5_LANGGRAPH_PLANNING.md
+│   ├── V0_5_1_AI_PLANNER.md
 │   ├── HOSTINGER_DEPLOYMENT.md
 │   ├── adr/
 │   └── GETTING_STARTED.md
@@ -232,6 +240,8 @@ configuration.
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md)
+- [v0.5 LangGraph planning](docs/V0_5_LANGGRAPH_PLANNING.md)
+- [v0.5.1 AI planner](docs/V0_5_1_AI_PLANNER.md)
 - [Getting started](docs/GETTING_STARTED.md)
 - [Tech Power client start](docs/TECH_POWER_CLIENT_START.md)
 - [Notion read-only connector](docs/NOTION_READONLY_CONNECTOR.md)
@@ -260,14 +270,23 @@ configuration.
 - [ ] test-to-production gate for a future production-capable runtime;
 - [ ] action-specific execution approvals for future consequential adapters.
 
-### v0.4 — Adapters and industry packs
+### v0.4 — Adapters and client workspaces
 
 - [x] operator-owned multi-client workspace registry;
 - [x] client-scoped runs, artifacts, approvals, and integration allowlists;
 - [x] Notion summary, OpenRouter preview, and signed webhook foundations;
 - [x] client-scoped secret-reference and broker foundation;
-- [ ] Google Sheets, Airtable, and CRM outputs;
-- e-commerce, restaurant, real-estate, agency, education, and professional-services packs.
+- [ ] Google Sheets, Airtable, and CRM outputs.
+
+### v0.5 — Agent planning
+
+- [x] LangGraph deterministic planning layer;
+- [x] planning risk classification and fail-closed unknown capabilities;
+- [x] non-executing authenticated planning endpoint;
+- [x] constrained OpenRouter intent classification composed with deterministic policy;
+- [x] AI preview endpoint that cannot authorize execution;
+- [ ] measured planner evaluation set and routing metrics;
+- [ ] optional browser-use public read-only adapter.
 
 ### v1.0 — Pilot-ready platform
 
