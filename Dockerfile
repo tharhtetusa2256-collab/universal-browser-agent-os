@@ -9,7 +9,7 @@ RUN useradd --create-home --uid 10001 uba
 WORKDIR /app
 COPY . /app
 
-RUN python -m pip install --no-cache-dir . \
+RUN python -m pip install --no-cache-dir ".[browser-use]" \
     && python -m playwright install --with-deps chromium \
     && mkdir -p \
         /app/artifacts \
